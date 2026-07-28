@@ -1,0 +1,21 @@
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class SearchResult(BaseModel):
+    tmdb_id: int
+    media_type: Literal["movie", "tv"]
+    title: str
+    overview: str = ""
+    poster_url: str | None = None
+    release_year: int | None = None
+    rating: float = Field(default=0, ge=0, le=10)
+    genre_ids: list[int] = Field(default_factory=list)
+
+
+class SearchResponse(BaseModel):
+    page: int
+    total_pages: int
+    results: list[SearchResult]
+  
