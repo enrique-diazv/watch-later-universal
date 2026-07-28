@@ -63,3 +63,15 @@ async def get_media_details(
             "language": settings.tmdb_language,
         },
     )
+
+
+async def get_watch_providers(
+    media_type: MediaType,
+    tmdb_id: int,
+) -> dict[str, Any]:
+    return await _get(
+        path=f"{media_type}/{tmdb_id}/watch/providers",
+        params={},
+    )
+
+    

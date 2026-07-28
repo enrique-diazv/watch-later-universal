@@ -40,3 +40,27 @@ class MediaDetails(BaseModel):
     runtime: int | None = Field(default=None, ge=0)
     number_of_seasons: int | None = Field(default=None, ge=0)
     number_of_episodes: int | None = Field(default=None, ge=0)
+
+AvailabilityType = Literal[
+    "flatrate",
+    "free",
+    "ads",
+    "rent",
+    "buy",
+]
+
+
+class WatchProvider(BaseModel):
+    tmdb_provider_id: int
+    name: str
+    logo_url: str | None = None
+    display_priority: int = Field(default=0, ge=0)
+    availability_type: AvailabilityType
+
+
+class WatchProvidersResponse(BaseModel):
+    tmdb_id: int
+    media_type: Literal["movie", "tv"]
+    region: str = Field(min_length=2, max_length=2)
+    link: str | None = None
+    providers: list[WatchProvider] = Field(default_factory=list)
