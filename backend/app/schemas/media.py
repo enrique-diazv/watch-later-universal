@@ -19,3 +19,24 @@ class SearchResponse(BaseModel):
     total_pages: int
     results: list[SearchResult]
   
+
+class Genre(BaseModel):
+    id: int
+    name: str
+
+
+class MediaDetails(BaseModel):
+    tmdb_id: int
+    media_type: Literal["movie", "tv"]
+    title: str
+    original_title: str = ""
+    overview: str = ""
+    poster_url: str | None = None
+    backdrop_url: str | None = None
+    release_year: int | None = None
+    rating: float = Field(default=0, ge=0, le=10)
+    vote_count: int = Field(default=0, ge=0)
+    genres: list[Genre] = Field(default_factory=list)
+    runtime: int | None = Field(default=None, ge=0)
+    number_of_seasons: int | None = Field(default=None, ge=0)
+    number_of_episodes: int | None = Field(default=None, ge=0)
