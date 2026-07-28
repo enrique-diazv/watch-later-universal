@@ -1,11 +1,16 @@
-import type { HealthResponse } from '../types/api'
+import type {
+  HealthResponse,
+  SearchResponse,
+} from '../types/api'
+
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
   'http://127.0.0.1:8000/api/v1'
 
-export async function getHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${API_BASE_URL}/health`)
+
+async function requestJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`)
 
   if (!response.ok) {
     throw new Error(
@@ -13,7 +18,27 @@ export async function getHealth(): Promise<HealthResponse> {
     )
   }
 
-  const data: HealthResponse = await response.json()
+  const data: T = await response.json()
 
   return data
+}
+
+
+export function getHealth(): Promise<HealthResponse> {
+  return requestJson<HealthResponse>('/health')
+}
+
+
+export function searchMedia(
+  query: string,
+  page = 1,
+): Promise<SearchResponse> {
+  const params = new URLSearchParams({
+    q: query,
+    page: String(page),
+  })
+
+  return requestJson<SearchResponse>(
+    `/search?${params.toString()}`,
+  )
 }
