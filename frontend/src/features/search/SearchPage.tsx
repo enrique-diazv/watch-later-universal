@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { searchMedia } from '../../services/api'
 
+import { Link } from 'react-router-dom'
 
 export function SearchPage() {
   const [query, setQuery] = useState('')
@@ -87,7 +88,13 @@ export function SearchPage() {
               )}
 
               <div>
-                <h3>{result.title}</h3>
+                <h3>
+                  <Link
+                  to={`/media/${result.media_type}/${result.tmdb_id}`}
+                  >
+                  {result.title}
+                  </Link>
+                </h3>
 
                 <p>
                   {result.media_type === 'movie'

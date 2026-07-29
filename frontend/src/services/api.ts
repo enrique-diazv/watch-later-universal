@@ -1,6 +1,9 @@
 import type {
   HealthResponse,
+  MediaDetails,
+  MediaType,
   SearchResponse,
+  WatchProvidersResponse,
 } from '../types/api'
 
 
@@ -40,5 +43,25 @@ export function searchMedia(
 
   return requestJson<SearchResponse>(
     `/search?${params.toString()}`,
+  )
+}
+
+
+export function getMediaDetails(
+  mediaType: MediaType,
+  tmdbId: number,
+): Promise<MediaDetails> {
+  return requestJson<MediaDetails>(
+    `/media/${mediaType}/${tmdbId}`,
+  )
+}
+
+
+export function getWatchProviders(
+  mediaType: MediaType,
+  tmdbId: number,
+): Promise<WatchProvidersResponse> {
+  return requestJson<WatchProvidersResponse>(
+    `/media/${mediaType}/${tmdbId}/providers`,
   )
 }

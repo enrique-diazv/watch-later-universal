@@ -7,15 +7,17 @@ import {
 
 import App from './App.tsx'
 import './index.css'
-
+import { BrowserRouter } from 'react-router-dom'
 
 const queryClient = new QueryClient()
 
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </BrowserRouter>
   </StrictMode>,
 )
