@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { searchMedia } from '../../services/api'
+import styles from './SearchPage.module.css'
 
-import { Link } from 'react-router-dom'
 
 export function SearchPage() {
   const [query, setQuery] = useState('')
@@ -26,20 +27,27 @@ export function SearchPage() {
   const results = searchQuery.data?.results ?? []
 
   return (
-    <main>
-      <header>
+    <main className={styles.page}>
+      <header className={styles.hero}>
         <h1>Watch Later Universal</h1>
         <p>Busca películas y series en un solo lugar.</p>
       </header>
 
-      <section aria-labelledby="search-title">
+      <section
+        className={styles.searchPanel}
+        aria-labelledby="search-title"
+      >
         <h2 id="search-title">Buscar contenido</h2>
 
-        <label htmlFor="media-search">
+        <label
+          className={styles.label}
+          htmlFor="media-search"
+        >
           Título
         </label>
 
         <input
+          className={styles.input}
           id="media-search"
           type="search"
           value={query}
@@ -51,68 +59,97 @@ export function SearchPage() {
         />
 
         {normalizedQuery.length === 1 && (
-          <p>Escribe al menos dos caracteres.</p>
+          <p className={styles.hint}>
+            Escribe al menos dos caracteres.
+          </p>
         )}
       </section>
 
       {searchQuery.isFetching && (
-        <p role="status">Buscando...</p>
+        <p className={styles.status} role="status">
+          Buscando...
+        </p>
       )}
 
       {searchQuery.isError && (
-        <p role="alert">
+        <p
+          className={`${styles.status} ${styles.error}`}
+          role="alert"
+        >
           No fue posible buscar contenido:{' '}
           {searchQuery.error.message}
         </p>
       )}
 
       {searchQuery.data && results.length === 0 && (
-        <p>No encontramos resultados.</p>
+        <p className={styles.status}>
+          No encontramos resultados.
+        </p>
       )}
 
       {results.length > 0 && (
-        <section aria-label="Resultados de búsqueda">
+        <section
+          className={styles.results}
+          aria-label="Resultados de búsqueda"
+        >
           <h2>Resultados</h2>
 
-          {results.map((result) => (
-            <article
-              key={`${result.media_type}-${result.tmdb_id}`}
-            >
-              {result.poster_url && (
-                <img
-                  src={result.poster_url}
-                  alt={`Póster de ${result.title}`}
-                  width="185"
-                  loading="lazy"
-                />
-              )}
-
-              <div>
-                <h3>
-                  <Link
-                  to={`/media/${result.media_type}/${result.tmdb_id}`}
+          <div className={styles.grid}>
+            {results.map((result) => (
+              <article
+                className={styles.card}
+                key={
+                  `${result.media_type}-` +
+                  result.tmdb_id
+                }
+              >
+                {result.poster_url ? (
+                  <img
+                    className={styles.poster}
+                    src={result.poster_url}
+                    alt={`Póster de ${result.title}`}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div
+                    className={styles.posterPlaceholder}
+                    aria-hidden="true"
                   >
-                  {result.title}
-                  </Link>
-                </h3>
+                    Sin póster
+                  </div>
+                )}
 
-                <p>
-                  {result.media_type === 'movie'
-                    ? 'Película'
-                    : 'Serie'}
-                  {result.release_year
-                    ? ` · ${result.release_year}`
-                    : ''}
-                  {` · ${result.rating.toFixed(1)}/10`}
-                </p>
+                <div className={styles.cardContent}>
+                  <h3>
+                    <Link
+                      className={styles.titleLink}
+                      to={
+                        `/media/${result.media_type}/` +
+                        result.tmdb_id
+                      }
+                    >
+                      {result.title}
+                    </Link>
+                  </h3>
 
-                <p>
-                  {result.overview ||
-                    'Sin descripción disponible.'}
-                </p>
-              </div>
-            </article>
-          ))}
+                  <p className={styles.meta}>
+                    {result.media_type === 'movie'
+                      ? 'Película'
+                      : 'Serie'}
+                    {result.release_year
+                      ? ` · ${result.release_year}`
+                      : ''}
+                    {` · ${result.rating.toFixed(1)}/10`}
+                  </p>
+
+                  <p className={styles.overview}>
+                    {result.overview ||
+                      'Sin descripción disponible.'}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
       )}
     </main>

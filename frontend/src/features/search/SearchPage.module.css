@@ -1,0 +1,171 @@
+.page {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 64px 0;
+}
+
+.hero {
+  max-width: 720px;
+  margin-bottom: 32px;
+}
+
+.hero h1 {
+  margin: 0 0 12px;
+  font-size: clamp(2.25rem, 6vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.hero p {
+  margin: 0;
+  color: #a9a7b5;
+  font-size: 1.1rem;
+}
+
+.searchPanel {
+  padding: 24px;
+  border: 1px solid #302d3d;
+  border-radius: 20px;
+  background: rgb(20 21 29 / 88%);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 25%);
+}
+
+.searchPanel h2 {
+  margin: 0 0 18px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  color: #d6d3df;
+  font-weight: 650;
+}
+
+.input {
+  width: 100%;
+  padding: 15px 18px;
+  border: 1px solid #464155;
+  border-radius: 12px;
+  outline: none;
+  color: #fff;
+  background: #101118;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.input:focus {
+  border-color: #9f7aea;
+  box-shadow: 0 0 0 4px rgb(159 122 234 / 18%);
+}
+
+.hint,
+.status {
+  color: #aaa7b5;
+}
+
+.error {
+  color: #ff9f9f;
+}
+
+.results {
+  margin-top: 40px;
+}
+
+.results h2 {
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fill, minmax(220px, 1fr));
+  gap: 22px;
+}
+
+.card {
+  overflow: hidden;
+  border: 1px solid #2d2b38;
+  border-radius: 18px;
+  background: #15161e;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 20%);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: #665a82;
+}
+
+.poster,
+.posterPlaceholder {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: #24232d;
+}
+
+.posterPlaceholder {
+  display: grid;
+  place-items: center;
+  color: #84818e;
+}
+
+.cardContent {
+  padding: 18px;
+}
+
+.cardContent h3 {
+  margin: 0 0 8px;
+  font-size: 1.08rem;
+}
+
+.titleLink {
+  text-decoration: none;
+}
+
+.titleLink:hover {
+  color: #c4a7ff;
+}
+
+.meta {
+  margin: 0 0 12px;
+  color: #aaa7b5;
+  font-size: 0.9rem;
+}
+
+.overview {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: #d2cfda;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+@media (max-width: 600px) {
+  .page {
+    width: min(100% - 22px, 1180px);
+    padding: 36px 0;
+  }
+
+  .searchPanel {
+    padding: 18px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .cardContent {
+    padding: 13px;
+  }
+
+  .overview {
+    display: none;
+  }
+}
