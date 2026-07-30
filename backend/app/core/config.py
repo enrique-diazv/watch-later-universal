@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     tmdb_language: str = "es-MX"
     tmdb_region: str = "MX"
 
+    database_host: str = "localhost"
+    database_port: int = 5432
+    database_name: str = "watch_later"
+    database_user: str = "watch_later_app"
+    database_password: SecretStr
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
