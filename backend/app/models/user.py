@@ -25,6 +25,13 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(
         String(100),
     )
+
+    country_code: Mapped[str] = mapped_column(
+        String(2),
+        default="MX",
+        server_default="MX",
+    )
+
     is_active: Mapped[bool] = mapped_column(
         default=True,
         server_default=true(),
