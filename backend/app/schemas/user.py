@@ -9,6 +9,7 @@ from pydantic import (
     field_validator,
 )
 
+from typing import Literal
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -49,6 +50,27 @@ class UserCreate(BaseModel):
     def normalize_country_code(cls, value: str) -> str:
         return value.upper()
 
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str = Field(
+        min_length=1,
+        max_length=128,
+    )
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().lower()
+
+        return value
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int = Field(gt=0)
 
 class UserRead(BaseModel):
     id: UUID

@@ -10,11 +10,22 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password
+from app.core.config import get_settings
+from app.core.security import (
+    create_access_token,
+    hash_password,
+    verify_password,
+)
+
+
 from app.db.session import get_db_session
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead
-
+from app.schemas.user import (
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserRead,
+)
 
 router = APIRouter()
 
@@ -65,5 +76,48 @@ def register_user(
         ) from error
 
     session.refresh(user)
-
     return user
+
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+)
+def login_user(
+    payload: UserLogin,
+    session: DatabaseSession,
+) -> TokenResponse:
+    user = session.scalar(
+        select(User).where(
+            User.email == str(payload.email),
+        )
+    )
+
+    if (
+        user is None
+        or not user.is_active
+        or not verify_password(
+            payload.password,
+            user.password_hash,
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Correo o contraseña incorrectos.",
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
+        )
+
+    settings = get_settings()
+
+    access_token = create_access_token(
+        str(user.id),
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        expires_in=(
+            settings.access_token_expire_minutes * 60
+        ),
+    )

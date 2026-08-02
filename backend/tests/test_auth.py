@@ -6,7 +6,11 @@ from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.security import verify_password
+from app.core.config import get_settings
+from app.core.security import (
+    decode_access_token,
+    verify_password,
+)
 from app.db.session import get_db_session
 from app.main import app
 from app.models.user import User
@@ -31,7 +35,25 @@ def override_get_db_session(
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
+def client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[TestClient]:
+
+    monkeypatch.setenv(
+        "TMDB_ACCESS_TOKEN",
+        "test-tmdb-token",
+    )
+    monkeypatch.setenv(
+        "DATABASE_PASSWORD",
+        "test-database-password",
+    )
+    monkeypatch.setenv(
+        "JWT_SECRET_KEY",
+        "test-secret-only-for-automated-tests",
+    )
+
+    get_settings.cache_clear()
+
     User.__table__.create(
         bind=test_engine,
         checkfirst=True,
@@ -52,6 +74,8 @@ def client() -> Iterator[TestClient]:
         get_db_session,
         None,
     )
+
+    get_settings.cache_clear()
 
 
 def test_register_creates_user_with_hashed_password(
@@ -120,3 +144,88 @@ def test_register_rejects_duplicate_email(
     assert duplicate_response.json() == {
         "detail": "El correo ya está registrado.",
     }
+
+def test_login_returns_valid_access_token(
+    client: TestClient,
+) -> None:
+    registration_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    user_id = registration_response.json()["id"]
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "LEARNER@example.com",
+            "password": "safe-learning-password",
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    data = login_response.json()
+
+    assert data["token_type"] == "bearer"
+    assert data["expires_in"] == 1800
+    assert (
+        decode_access_token(data["access_token"])
+        == user_id
+    )
+
+def test_login_rejects_wrong_password(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Correo o contraseña incorrectos.",
+    }
+    assert (
+        response.headers["www-authenticate"]
+        == "Bearer"
+    )
+
+
+def test_login_rejects_unknown_email(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "unknown@example.com",
+            "password": "safe-learning-password",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Correo o contraseña incorrectos.",
+    }
+    assert (
+        response.headers["www-authenticate"]
+        == "Bearer"
+    )
