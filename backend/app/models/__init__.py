@@ -1,7 +1,7 @@
 from app.models.library import LibraryItem, LibraryStatus
 from app.models.media import Media, MediaType
 from app.models.user import User
-
+from app.models.refresh_token import RefreshToken
 
 __all__ = [
     "LibraryItem",
@@ -9,4 +9,5 @@ __all__ = [
     "Media",
     "MediaType",
     "User",
+    "RefreshToken",
 ]

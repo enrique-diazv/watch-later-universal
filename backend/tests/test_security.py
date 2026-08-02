@@ -10,6 +10,8 @@ from app.core.security import (
     decode_access_token,
     hash_password,
     verify_password,
+    create_refresh_token,
+    hash_refresh_token,
 )
 
 
@@ -98,3 +100,18 @@ def test_access_token_rejects_expired_token(
     )
 
     assert decode_access_token(expired_token) is None
+
+def test_refresh_tokens_are_random_and_hashed() -> None:
+    first_token = create_refresh_token()
+    second_token = create_refresh_token()
+
+    first_hash = hash_refresh_token(first_token)
+
+    assert first_token != second_token
+    assert len(first_token) >= 64
+    assert len(first_hash) == 64
+    assert first_hash != first_token
+    assert (
+        hash_refresh_token(first_token)
+        == first_hash
+    )

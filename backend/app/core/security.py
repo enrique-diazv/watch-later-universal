@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
+from hashlib import sha256
+from secrets import token_urlsafe
+
 import jwt
 from jwt.exceptions import InvalidTokenError
 from pwdlib import PasswordHash
@@ -66,3 +69,12 @@ def decode_access_token(token: str) -> str | None:
         return None
 
     return subject
+
+def create_refresh_token() -> str:
+    return token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    return sha256(
+        token.encode("utf-8"),
+    ).hexdigest()

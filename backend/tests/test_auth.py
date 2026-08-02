@@ -9,12 +9,13 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import get_settings
 from app.core.security import (
     decode_access_token,
+    hash_refresh_token,
     verify_password,
 )
 from app.db.session import get_db_session
 from app.main import app
 from app.models.user import User
-
+from app.models.refresh_token import RefreshToken
 
 test_engine = create_engine(
     "sqlite+pysqlite:///:memory:",
@@ -59,7 +60,13 @@ def client(
         checkfirst=True,
     )
 
+    RefreshToken.__table__.create(
+        bind=test_engine,
+        checkfirst=True,
+    )
+
     with TestSessionFactory() as session:
+        session.execute(delete(RefreshToken))
         session.execute(delete(User))
         session.commit()
 
@@ -315,3 +322,252 @@ def test_me_rejects_invalid_token(
         response.headers["www-authenticate"]
         == "Bearer"
     )
+
+def test_login_sets_hashed_refresh_token_cookie(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+        },
+    )
+
+    assert response.status_code == 200
+
+    raw_refresh_token = response.cookies.get(
+        "refresh_token"
+    )
+
+    assert raw_refresh_token is not None
+    assert "HttpOnly" in response.headers["set-cookie"]
+    assert (
+        "Path=/api/v1/auth"
+        in response.headers["set-cookie"]
+    )
+
+    with TestSessionFactory() as session:
+        stored_token = session.scalar(
+            select(RefreshToken)
+        )
+
+    assert stored_token is not None
+    assert stored_token.token_hash != raw_refresh_token
+    assert stored_token.token_hash == (
+        hash_refresh_token(raw_refresh_token)
+    )
+
+def test_refresh_rotates_token_and_returns_access_token(
+    client: TestClient,
+) -> None:
+    registration_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    user_id = registration_response.json()["id"]
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+        },
+    )
+
+    old_refresh_token = login_response.cookies.get(
+        "refresh_token"
+    )
+
+    assert old_refresh_token is not None
+
+    refresh_response = client.post(
+        "/api/v1/auth/refresh",
+    )
+
+    assert refresh_response.status_code == 200
+
+    new_refresh_token = refresh_response.cookies.get(
+        "refresh_token"
+    )
+    data = refresh_response.json()
+
+    assert new_refresh_token is not None
+    assert new_refresh_token != old_refresh_token
+    assert (
+        decode_access_token(data["access_token"])
+        == user_id
+    )
+
+    with TestSessionFactory() as session:
+        stored_tokens = list(
+            session.scalars(
+                select(RefreshToken)
+            ).all()
+        )
+
+    assert len(stored_tokens) == 2
+
+    old_stored_token = next(
+        token
+        for token in stored_tokens
+        if token.token_hash
+        == hash_refresh_token(old_refresh_token)
+    )
+    new_stored_token = next(
+        token
+        for token in stored_tokens
+        if token.token_hash
+        == hash_refresh_token(new_refresh_token)
+    )
+
+    assert old_stored_token.revoked_at is not None
+    assert new_stored_token.revoked_at is None
+    assert (
+        old_stored_token.family_id
+        == new_stored_token.family_id
+    )
+
+def test_refresh_rejects_missing_cookie(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/auth/refresh",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": (
+            "No se pudieron validar las credenciales."
+        ),
+    }
+
+
+def test_refresh_reuse_revokes_token_family(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+        },
+    )
+
+    old_refresh_token = login_response.cookies.get(
+        "refresh_token"
+    )
+
+    assert old_refresh_token is not None
+
+    first_refresh_response = client.post(
+        "/api/v1/auth/refresh",
+    )
+
+    assert first_refresh_response.status_code == 200
+
+    client.cookies.clear()
+    client.cookies.set(
+        "refresh_token",
+        old_refresh_token,
+        path="/api/v1/auth",
+    )
+
+    reuse_response = client.post(
+        "/api/v1/auth/refresh",
+    )
+
+    assert reuse_response.status_code == 401
+
+    with TestSessionFactory() as session:
+        active_tokens = list(
+            session.scalars(
+                select(RefreshToken).where(
+                    RefreshToken.revoked_at.is_(None),
+                )
+            ).all()
+        )
+
+    assert active_tokens == []
+
+def test_logout_revokes_session_and_clears_cookie(
+    client: TestClient,
+) -> None:
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+        },
+    )
+
+    logout_response = client.post(
+        "/api/v1/auth/logout",
+    )
+
+    assert logout_response.status_code == 204
+    assert logout_response.content == b""
+    assert (
+        client.cookies.get("refresh_token")
+        is None
+    )
+
+    with TestSessionFactory() as session:
+        stored_token = session.scalar(
+            select(RefreshToken)
+        )
+
+    assert stored_token is not None
+    assert stored_token.revoked_at is not None
+
+    refresh_response = client.post(
+        "/api/v1/auth/refresh",
+    )
+
+    assert refresh_response.status_code == 401
+
+def test_logout_without_cookie_is_idempotent(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/auth/logout",
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""

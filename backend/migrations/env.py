@@ -14,6 +14,12 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+from app.models import (
+    LibraryItem,
+    Media,
+    RefreshToken,
+    User,
+)
 
 def run_migrations_offline() -> None:
     context.configure(
