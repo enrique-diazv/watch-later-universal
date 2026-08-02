@@ -10,6 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import CurrentUser
+
 from app.core.config import get_settings
 from app.core.security import (
     create_access_token,
@@ -121,3 +123,12 @@ def login_user(
             settings.access_token_expire_minutes * 60
         ),
     )
+
+@router.get(
+    "/me",
+    response_model=UserRead,
+)
+def read_current_user(
+    current_user: CurrentUser,
+) -> User:
+    return current_user

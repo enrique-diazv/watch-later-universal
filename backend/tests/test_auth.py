@@ -229,3 +229,89 @@ def test_login_rejects_unknown_email(
         response.headers["www-authenticate"]
         == "Bearer"
     )
+
+def test_me_returns_authenticated_user(
+    client: TestClient,
+) -> None:
+    registration_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    registered_user = registration_response.json()
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+        },
+    )
+
+    access_token = login_response.json()[
+        "access_token"
+    ]
+
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={
+            "Authorization": (
+                f"Bearer {access_token}"
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == registered_user["id"]
+    assert data["email"] == "learner@example.com"
+    assert data["display_name"] == "Learner"
+    assert "password" not in data
+    assert "password_hash" not in data
+
+def test_me_rejects_missing_token(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/v1/auth/me",
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": (
+            "No se pudieron validar las credenciales."
+        ),
+    }
+    assert (
+        response.headers["www-authenticate"]
+        == "Bearer"
+    )
+
+
+def test_me_rejects_invalid_token(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={
+            "Authorization": "Bearer invalid-token",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": (
+            "No se pudieron validar las credenciales."
+        ),
+    }
+    assert (
+        response.headers["www-authenticate"]
+        == "Bearer"
+    )
