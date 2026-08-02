@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -14,9 +15,17 @@ from sqlalchemy import (
     false,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.db.base import Base
+
+
+if TYPE_CHECKING:
+    from app.models.media import Media
 
 
 class LibraryStatus(str, Enum):
@@ -62,6 +71,7 @@ class LibraryItem(Base):
     media_id: Mapped[UUID] = mapped_column(
         ForeignKey("media.id", ondelete="RESTRICT"),
     )
+    media: Mapped["Media"] = relationship()
     status: Mapped[LibraryStatus] = mapped_column(
         SqlEnum(
             LibraryStatus,
