@@ -5,7 +5,7 @@ from alembic import context
 from app.db.base import Base
 from app.db.session import get_engine
 
-from app.models import Media, User
+from app.models import LibraryItem, Media, User
 
 config = context.config
 
