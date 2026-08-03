@@ -3,14 +3,15 @@ import {
   Route,
   Routes,
 } from 'react-router-dom'
-
+import { LibraryPage } from './features/library/LibraryPage'
 import { MediaDetailsPage } from './features/media/MediaDetailsPage'
 import { SearchPage } from './features/search/SearchPage'
-
+import { AuthPage } from './features/auth/AuthPage'
 
 function App() {
   return (
     <Routes>
+      <Route path="/auth" element={<AuthPage />} />
       <Route path="/" element={<SearchPage />} />
 
       <Route
@@ -21,6 +22,11 @@ function App() {
       <Route
         path="*"
         element={<Navigate to="/" replace />}
+      />
+
+      <Route
+        path="/library"
+        element={<LibraryPage />}
       />
     </Routes>
   )

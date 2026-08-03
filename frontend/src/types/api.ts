@@ -66,3 +66,87 @@ export interface WatchProvidersResponse {
   link: string | null
   providers: WatchProvider[]
 }
+
+export interface User {
+  id: string
+  email: string
+  display_name: string
+  country_code: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+
+export interface RegisterPayload {
+  email: string
+  password: string
+  display_name: string
+  country_code: string
+}
+
+
+export interface LoginPayload {
+  email: string
+  password: string
+}
+
+
+export interface TokenResponse {
+  access_token: string
+  token_type: 'bearer'
+  expires_in: number
+}
+
+
+export type LibraryStatus =
+  | 'plan_to_watch'
+  | 'watching'
+  | 'completed'
+  | 'paused'
+  | 'dropped'
+
+
+export interface LibraryMedia {
+  id: string
+  tmdb_id: number
+  media_type: MediaType
+  title: string
+  original_title: string | null
+  overview: string | null
+  poster_path: string | null
+  backdrop_path: string | null
+  release_date: string | null
+  tmdb_rating: number
+  vote_count: number
+  runtime: number | null
+}
+
+
+export interface LibraryItem {
+  id: string
+  status: LibraryStatus
+  user_rating: number | null
+  is_favorite: boolean
+  notes: string | null
+  added_at: string
+  started_at: string | null
+  completed_at: string | null
+  updated_at: string
+  media: LibraryMedia
+}
+
+
+export interface AddLibraryItemPayload {
+  tmdb_id: number
+  media_type: MediaType
+  status?: LibraryStatus
+}
+
+
+export interface UpdateLibraryItemPayload {
+  status?: LibraryStatus
+  user_rating?: number | null
+  is_favorite?: boolean
+  notes?: string | null
+}

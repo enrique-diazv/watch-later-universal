@@ -1,21 +1,40 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-
+import { useAuth } from '../auth/auth-context'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { searchMedia } from '../../services/api'
+import { getLibraryItems, searchMedia } from '../../services/api'
 import styles from './SearchPage.module.css'
 
 
 export function SearchPage() {
   const [query, setQuery] = useState('')
 
+  const {
+    isAuthenticated,
+    isLoading: isAuthLoading,
+  } = useAuth()
+
+const libraryQuery = useQuery({
+  queryKey: ['library'],
+  queryFn: getLibraryItems,
+  enabled: (
+    isAuthenticated &&
+    !isAuthLoading
+  ),
+})
+
+const savedMediaKeys = new Set(
+  (libraryQuery.data ?? []).map(
+    (item) =>
+      `${item.media.media_type}-${item.media.tmdb_id}`,
+  ),
+)
   const normalizedQuery = query.trim()
   const debouncedQuery = useDebouncedValue(
     normalizedQuery,
     400,
   )
-
   const canSearch = debouncedQuery.length >= 2
 
   const searchQuery = useQuery({
@@ -28,9 +47,28 @@ export function SearchPage() {
 
   return (
     <main className={styles.page}>
-      <header className={styles.hero}>
-        <h1>Watch Later Universal</h1>
-        <p>Busca películas y series en un solo lugar.</p>
+            <header className={styles.hero}>
+        <div className={styles.heroCopy}>
+          <h1>Watch Later Universal</h1>
+          <p>
+            Busca películas y series en un solo lugar.
+          </p>
+        </div>
+
+        <Link
+          className={styles.accountLink}
+          to={
+            isAuthenticated
+              ? '/library'
+              : '/auth'
+          }
+        >
+          {isAuthLoading
+            ? 'Comprobando sesión...'
+            : isAuthenticated
+              ? 'Mi biblioteca'
+              : 'Iniciar sesión'}
+        </Link>
       </header>
 
       <section
@@ -103,6 +141,7 @@ export function SearchPage() {
                   result.tmdb_id
                 }
               >
+              <div className={styles.posterFrame}>
                 {result.poster_url ? (
                   <img
                     className={styles.poster}
@@ -118,6 +157,15 @@ export function SearchPage() {
                     Sin póster
                   </div>
                 )}
+
+                {savedMediaKeys.has(
+                  `${result.media_type}-${result.tmdb_id}`,
+                ) && (
+                  <span className={styles.savedBadge}>
+                    Guardado en tu biblioteca
+                  </span>
+                )}
+              </div>
 
                 <div className={styles.cardContent}>
                   <h3>

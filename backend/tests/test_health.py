@@ -43,3 +43,30 @@ def test_cors_allows_registration_post() -> None:
     assert "POST" in response.headers[
         "access-control-allow-methods"
     ]
+
+def test_cors_allows_authenticated_library_requests(
+) -> None:
+    response = client.options(
+        "/api/v1/library/example-id",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": (
+                "Authorization, Content-Type"
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.headers[
+            "access-control-allow-credentials"
+        ]
+        == "true"
+    )
+    assert "PATCH" in response.headers[
+        "access-control-allow-methods"
+    ]
+    assert "authorization" in response.headers[
+        "access-control-allow-headers"
+    ].lower()

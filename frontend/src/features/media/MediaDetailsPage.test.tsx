@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
 import {
   afterEach,
@@ -9,11 +10,14 @@ import {
 } from 'vitest'
 
 import {
+  addLibraryItem,
   getMediaDetails,
   getWatchProviders,
+  getLibraryItems,
 } from '../../services/api'
 import { renderWithProviders } from '../../tests/test-utils'
 import type {
+  LibraryItem,
   MediaDetails,
   WatchProvidersResponse,
 } from '../../types/api'
@@ -21,11 +25,19 @@ import { MediaDetailsPage } from './MediaDetailsPage'
 
 
 vi.mock('../../services/api', () => ({
+  addLibraryItem: vi.fn(),
+  getLibraryItems: vi.fn(),
   getMediaDetails: vi.fn(),
   getWatchProviders: vi.fn(),
 }))
 
+const mockedLibrary = vi.mocked(
+  getLibraryItems,
+)
 
+const mockedAddLibraryItem = vi.mocked(
+  addLibraryItem,
+)
 const mockedDetails = vi.mocked(getMediaDetails)
 const mockedProviders = vi.mocked(getWatchProviders)
 
@@ -69,21 +81,39 @@ const fakeProviders: WatchProvidersResponse = {
   ],
 }
 
+const fakeLibraryItem = {
+  id: 'library-item-1',
+  status: 'plan_to_watch',
+  media: {
+    tmdb_id: 603,
+    media_type: 'movie',
+  },
+} as LibraryItem
 
-function renderDetailsPage(route: string) {
+function renderDetailsPage(
+
+  route: string,
+  isAuthenticated = false,
+) {
   return renderWithProviders(
     <Routes>
       <Route
         path="/media/:mediaType/:tmdbId"
         element={<MediaDetailsPage />}
       />
+      <Route
+        path="/library"
+        element={<p>Biblioteca personal</p>}
+      />
     </Routes>,
     {
       route,
+      auth: {
+        isAuthenticated,
+      },
     },
   )
 }
-
 
 afterEach(() => {
   vi.resetAllMocks()
@@ -91,6 +121,46 @@ afterEach(() => {
 
 
 describe('MediaDetailsPage', () => {
+  it('adds media to Watch Later', async () => {
+  const user = userEvent.setup()
+
+  mockedLibrary.mockResolvedValue([])
+  mockedDetails.mockResolvedValue(fakeMovie)
+  mockedProviders.mockResolvedValue(fakeProviders)
+  mockedAddLibraryItem.mockResolvedValue(
+  fakeLibraryItem,
+)
+
+  renderDetailsPage(
+    '/media/movie/603',
+    true,
+  )
+
+  await screen.findByRole('heading', {
+    level: 1,
+    name: 'Matrix',
+  })
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Guardar para después',
+    }),
+  )
+
+  await waitFor(() => {
+    expect(mockedAddLibraryItem).toHaveBeenCalledWith({
+      tmdb_id: 603,
+      media_type: 'movie',
+      status: 'plan_to_watch',
+    })
+  })
+
+  expect(
+    await screen.findByText(
+      'Ya está en tu lista Watch Later.',
+    ),
+  ).toBeInTheDocument()
+})
   it('shows details and providers', async () => {
     mockedDetails.mockResolvedValue(fakeMovie)
     mockedProviders.mockResolvedValue(fakeProviders)
@@ -142,4 +212,44 @@ describe('MediaDetailsPage', () => {
     expect(mockedDetails).not.toHaveBeenCalled()
     expect(mockedProviders).not.toHaveBeenCalled()
   })
+})
+
+it('keeps saved state and navigates to library', async () => {
+  const user = userEvent.setup()
+
+  mockedDetails.mockResolvedValue(fakeMovie)
+  mockedProviders.mockResolvedValue(fakeProviders)
+  mockedLibrary.mockResolvedValue([
+    fakeLibraryItem,
+  ])
+
+  renderDetailsPage(
+    '/media/movie/603',
+    true,
+  )
+
+  const libraryButton = await screen.findByRole(
+    'button',
+    {
+      name: 'Ir a tu biblioteca',
+    },
+  )
+
+  expect(
+    screen.getByText(
+      'Ya está en tu lista Watch Later.',
+    ),
+  ).toBeInTheDocument()
+
+  await user.click(libraryButton)
+
+  expect(
+    await screen.findByText(
+      'Biblioteca personal',
+    ),
+  ).toBeInTheDocument()
+
+  expect(
+    mockedAddLibraryItem,
+  ).not.toHaveBeenCalled()
 })

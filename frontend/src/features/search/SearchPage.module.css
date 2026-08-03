@@ -5,8 +5,15 @@
 }
 
 .hero {
-  max-width: 720px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
   margin-bottom: 32px;
+}
+
+.heroCopy {
+  max-width: 720px;
 }
 
 .hero h1 {
@@ -147,6 +154,17 @@
 }
 
 @media (max-width: 600px) {
+
+  .hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .accountLink {
+    width: 100%;
+    text-align: center;
+  }
+
   .page {
     width: min(100% - 22px, 1180px);
     padding: 36px 0;
@@ -168,4 +186,40 @@
   .overview {
     display: none;
   }
+}
+
+.accountLink {
+  flex: none;
+  padding: 12px 17px;
+  border: 1px solid #464155;
+  border-radius: 11px;
+  color: #e5e1eb;
+  background: #15161e;
+  text-decoration: none;
+}
+
+.accountLink:hover {
+  border-color: #8d70c8;
+  color: #c4a7ff;
+}
+
+.posterFrame {
+  position: relative;
+}
+
+.savedBadge {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  max-width: calc(100% - 1.5rem);
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(232 121 249 / 55%);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(97, 66, 133, 0.88);
+  box-shadow: 0 0.4rem 1.25rem rgb(0 0 0 / 35%);
+  backdrop-filter: blur(0.5rem);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
 }

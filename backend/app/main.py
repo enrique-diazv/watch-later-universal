@@ -17,9 +17,17 @@ local_frontend_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=local_frontend_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_credentials=True,
+    allow_methods=[
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+    ],
 )
 
 app.include_router(api_router, prefix="/api/v1")

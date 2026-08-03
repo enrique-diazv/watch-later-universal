@@ -202,6 +202,52 @@
   color: #ff9f9f;
 }
 
+.libraryActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.watchLaterButton {
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 12px;
+  color: #100d17;
+  font-weight: 800;
+  background:
+    linear-gradient(135deg, #d1b4ff, #9f7aea);
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease;
+}
+
+.watchLaterButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.watchLaterButton:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.libraryError,
+.librarySuccess {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.libraryError {
+  color: #ffb1b1;
+}
+
+.librarySuccess {
+  color: #9fe3ba;
+}
+
 @media (max-width: 720px) {
   .page {
     width: min(100% - 22px, 1180px);

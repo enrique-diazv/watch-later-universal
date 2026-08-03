@@ -1,12 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
-
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/auth-context'
 import {
+  addLibraryItem,
+  getLibraryItems,
   getMediaDetails,
   getWatchProviders,
 } from '../../services/api'
 import type {
   AvailabilityType,
+  LibraryItem,
   MediaType,
 } from '../../types/api'
 import styles from './MediaDetailsPage.module.css'
@@ -32,6 +35,12 @@ function isMediaType(
 
 
 export function MediaDetailsPage() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const {
+    isAuthenticated,
+    isLoading: isAuthLoading,
+  } = useAuth()
   const { mediaType, tmdbId } = useParams()
 
   const validMediaType = isMediaType(mediaType)
@@ -68,6 +77,56 @@ export function MediaDetailsPage() {
       getWatchProviders(safeMediaType, safeTmdbId),
     enabled: validMediaType && validTmdbId,
   })
+
+  const libraryQuery = useQuery({
+    queryKey: ['library'],
+    queryFn: getLibraryItems,
+    enabled: isAuthenticated,
+  })
+
+  const addToLibraryMutation = useMutation({
+    mutationFn: () =>
+      addLibraryItem({
+        tmdb_id: safeTmdbId,
+        media_type: safeMediaType,
+        status: 'plan_to_watch',
+      }),
+    onSuccess: (newItem) => {
+      queryClient.setQueryData<LibraryItem[]>(
+        ['library'],
+        (currentItems = []) => [
+          newItem,
+          ...currentItems.filter(
+            (item) => item.id !== newItem.id,
+          ),
+        ],
+      )
+    },
+  })
+
+  const savedLibraryItem = libraryQuery.data?.find(
+    (item) =>
+      item.media.tmdb_id === safeTmdbId &&
+      item.media.media_type === safeMediaType,
+  )
+
+  const isCheckingLibrary = (
+    isAuthenticated &&
+    libraryQuery.isPending
+  )
+  function handleWatchLater() {
+    if (!isAuthenticated) {
+      navigate('/auth')
+      return
+    }
+
+    if (savedLibraryItem) {
+      navigate('/library')
+      return
+    }
+
+    addToLibraryMutation.mutate()
+  }
 
   if (!validMediaType || !validTmdbId) {
     return (
@@ -183,7 +242,6 @@ export function MediaDetailsPage() {
             {media.overview ||
               'Sin descripción disponible.'}
           </p>
-
           <div className={styles.facts}>
             {media.media_type === 'movie' &&
               media.runtime !== null && (
@@ -201,6 +259,43 @@ export function MediaDetailsPage() {
                   {media.number_of_episodes ?? '?'} episodios
                 </span>
               </>
+            )}
+          </div>
+          <div className={styles.libraryActions}>
+            <button
+              className={styles.watchLaterButton}
+              type="button"
+              disabled={
+                isAuthLoading ||
+                isCheckingLibrary ||
+                addToLibraryMutation.isPending
+              }
+              onClick={handleWatchLater}
+            >
+              {!isAuthenticated
+                ? 'Inicia sesión para guardar'
+                : isCheckingLibrary
+                  ? 'Comprobando biblioteca...'
+                  : addToLibraryMutation.isPending
+                    ? 'Guardando...'
+                    : savedLibraryItem
+                      ? 'Ir a tu biblioteca'
+                      : 'Guardar para después'}
+            </button>
+
+            {addToLibraryMutation.isError && (
+              <p
+                className={styles.libraryError}
+                role="alert"
+              >
+                {addToLibraryMutation.error.message}
+              </p>
+            )}
+
+            {savedLibraryItem && (
+              <p className={styles.librarySuccess}>
+                Ya está en tu lista Watch Later.
+              </p>
             )}
           </div>
         </div>

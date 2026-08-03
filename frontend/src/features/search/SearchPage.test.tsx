@@ -8,19 +8,23 @@ import {
   vi,
 } from 'vitest'
 
-import { searchMedia } from '../../services/api'
+import { getLibraryItems, searchMedia } from '../../services/api'
 import { renderWithProviders } from '../../tests/test-utils'
-import type { SearchResponse } from '../../types/api'
+import type { LibraryItem, SearchResponse } from '../../types/api'
 import { SearchPage } from './SearchPage'
 
 
 vi.mock('../../services/api', () => ({
   searchMedia: vi.fn(),
+  getLibraryItems: vi.fn(),
 }))
 
 
 const mockedSearchMedia = vi.mocked(searchMedia)
 
+const mockedGetLibraryItems = vi.mocked(
+  getLibraryItems,
+)
 
 const fakeResponse: SearchResponse = {
   page: 1,
@@ -77,5 +81,40 @@ describe('SearchPage', () => {
       'href',
       '/media/movie/603',
     )
+  })
+  it('marks results already saved in the library', async () => {
+    mockedSearchMedia.mockResolvedValue(fakeResponse)
+
+    mockedGetLibraryItems.mockResolvedValue([
+      {
+        media: {
+          tmdb_id: 603,
+          media_type: 'movie',
+        },
+      } as LibraryItem,
+    ])
+
+    const user = userEvent.setup()
+
+    renderWithProviders(
+      <SearchPage />,
+      {
+        auth: {
+          isAuthenticated: true,
+        },
+      },
+    )
+
+    const input = screen.getByRole('searchbox', {
+      name: /título/i,
+    })
+
+    await user.type(input, 'matrix')
+
+    expect(
+      await screen.findByText(
+        'Guardado en tu biblioteca',
+      ),
+    ).toBeVisible()
   })
 })
