@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import UUID
-
+from typing import Literal
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -8,8 +8,6 @@ from pydantic import (
     Field,
     field_validator,
 )
-
-from typing import Literal
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -66,6 +64,27 @@ class UserLogin(BaseModel):
 
         return value
 
+class EmailVerificationConfirm(BaseModel):
+    token: str = Field(
+        min_length=32,
+        max_length=256,
+    )
+
+
+class EmailVerificationResend(BaseModel):
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().lower()
+
+        return value
+
+
+class MessageResponse(BaseModel):
+    message: str
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -78,6 +97,7 @@ class UserRead(BaseModel):
     display_name: str
     country_code: str
     is_active: bool
+    is_email_verified: bool
     created_at: datetime
     updated_at: datetime
 

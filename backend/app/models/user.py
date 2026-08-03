@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, String, func, true
+from sqlalchemy import DateTime, String, false, func, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -35,6 +35,11 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         default=True,
         server_default=true(),
+    )
+
+    is_email_verified: Mapped[bool] = mapped_column(
+        default=False,
+        server_default=false(),
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

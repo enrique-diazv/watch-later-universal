@@ -1,4 +1,7 @@
 import type {
+  EmailVerificationConfirmPayload,
+  EmailVerificationResendPayload,
+  MessageResponse,
   HealthResponse,
   MediaDetails,
   MediaType,
@@ -166,6 +169,29 @@ export function registerUser(
   )
 }
 
+export function verifyEmail(
+  payload: EmailVerificationConfirmPayload,
+): Promise<MessageResponse> {
+  return requestJson<MessageResponse>(
+    '/auth/verify-email',
+    {
+      method: 'POST',
+      body: payload,
+    },
+  )
+}
+
+export function resendVerificationEmail(
+  payload: EmailVerificationResendPayload,
+): Promise<MessageResponse> {
+  return requestJson<MessageResponse>(
+    '/auth/resend-verification',
+    {
+      method: 'POST',
+      body: payload,
+    },
+  )
+}
 
 export async function loginUser(
   payload: LoginPayload,

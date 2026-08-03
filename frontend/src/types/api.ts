@@ -73,6 +73,7 @@ export interface User {
   display_name: string
   country_code: string
   is_active: boolean
+  is_email_verified: boolean
   created_at: string
   updated_at: string
 }
@@ -91,6 +92,19 @@ export interface LoginPayload {
   password: string
 }
 
+export interface EmailVerificationConfirmPayload {
+  token: string
+}
+
+
+export interface EmailVerificationResendPayload {
+  email: string
+}
+
+
+export interface MessageResponse {
+  message: string
+}
 
 export interface TokenResponse {
   access_token: string

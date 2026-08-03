@@ -7,11 +7,16 @@ import { LibraryPage } from './features/library/LibraryPage'
 import { MediaDetailsPage } from './features/media/MediaDetailsPage'
 import { SearchPage } from './features/search/SearchPage'
 import { AuthPage } from './features/auth/AuthPage'
+import { VerifyEmailPage } from './features/auth/VerifyEmailPage'
 
 function App() {
   return (
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      <Route
+        path="/verify-email"
+        element={<VerifyEmailPage />}
+      />
       <Route path="/" element={<SearchPage />} />
 
       <Route

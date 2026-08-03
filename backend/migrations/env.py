@@ -4,8 +4,13 @@ from alembic import context
 
 from app.db.base import Base
 from app.db.session import get_engine
-
-from app.models import LibraryItem, Media, User
+from app.models import (
+    EmailVerificationToken,
+    LibraryItem,
+    Media,
+    RefreshToken,
+    User,
+)
 
 config = context.config
 
@@ -13,13 +18,6 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-
-from app.models import (
-    LibraryItem,
-    Media,
-    RefreshToken,
-    User,
-)
 
 def run_migrations_offline() -> None:
     context.configure(

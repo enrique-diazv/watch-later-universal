@@ -24,6 +24,9 @@ from app.core.security import (
 from app.db.session import get_db_session
 from app.models.user import User
 from app.schemas.user import (
+    EmailVerificationConfirm,
+    EmailVerificationResend,
+    MessageResponse,
     TokenResponse,
     UserCreate,
     UserLogin,
@@ -33,6 +36,16 @@ from app.services.auth import (
     issue_refresh_token,
     revoke_refresh_token_family,
     rotate_refresh_token,
+)
+
+from app.services.email import (
+    EmailDeliveryError,
+    send_verification_email,
+)
+from app.services.email_verification import (
+    can_resend_email_verification,
+    consume_email_verification_token,
+    issue_email_verification_token,
 )
 
 router = APIRouter()
@@ -102,11 +115,21 @@ def register_user(
         password_hash=hash_password(payload.password),
         display_name=payload.display_name,
         country_code=payload.country_code,
+        is_email_verified=False,
     )
 
     session.add(user)
 
     try:
+        session.flush()
+
+        raw_token, _ = (
+            issue_email_verification_token(
+                session,
+                user.id,
+            )
+        )
+
         session.commit()
     except IntegrityError as error:
         session.rollback()
@@ -117,8 +140,120 @@ def register_user(
         ) from error
 
     session.refresh(user)
+
+    try:
+        send_verification_email(
+            user.email,
+            user.display_name,
+            raw_token,
+        )
+    except EmailDeliveryError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "La cuenta fue creada, pero no fue "
+                "posible enviar la confirmación. "
+                "Solicita un nuevo correo."
+            ),
+        ) from error
+
     return user
 
+@router.post(
+    "/verify-email",
+    response_model=MessageResponse,
+)
+def verify_email(
+    payload: EmailVerificationConfirm,
+    session: DatabaseSession,
+) -> MessageResponse:
+    user = consume_email_verification_token(
+        session,
+        payload.token,
+    )
+
+    if user is None:
+        session.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "El enlace de verificación no es "
+                "válido o ya expiró."
+            ),
+        )
+
+    session.commit()
+
+    return MessageResponse(
+        message="Tu correo fue verificado correctamente.",
+    )
+
+
+@router.post(
+    "/resend-verification",
+    response_model=MessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def resend_verification_email(
+    payload: EmailVerificationResend,
+    session: DatabaseSession,
+) -> MessageResponse:
+    generic_message = (
+        "Si existe una cuenta pendiente con ese correo, "
+        "enviaremos un nuevo enlace de verificación."
+    )
+
+    user = session.scalar(
+        select(User).where(
+            User.email == str(payload.email),
+        )
+    )
+
+    if (
+        user is None
+        or not user.is_active
+        or user.is_email_verified
+    ):
+        return MessageResponse(
+            message=generic_message,
+        )
+
+    if not can_resend_email_verification(
+        session,
+        user.id,
+    ):
+        return MessageResponse(
+            message=generic_message,
+        )
+
+    raw_token, _ = issue_email_verification_token(
+        session,
+        user.id,
+    )
+    session.commit()
+
+    try:
+        send_verification_email(
+            user.email,
+            user.display_name,
+            raw_token,
+        )
+    except EmailDeliveryError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "No fue posible enviar el correo "
+                "de verificación. Inténtalo más tarde."
+            ),
+        ) from error
+    return MessageResponse(
+        message=generic_message,
+    )
 
 @router.post(
     "/login",
@@ -149,6 +284,15 @@ def login_user(
             headers={
                 "WWW-Authenticate": "Bearer",
             },
+        )
+
+    if not user.is_email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Debes confirmar tu correo antes "
+                "de iniciar sesión."
+            ),
         )
 
     settings = get_settings()

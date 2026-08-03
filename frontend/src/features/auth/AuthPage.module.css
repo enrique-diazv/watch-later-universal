@@ -142,6 +142,34 @@
   background: rgb(130 35 45 / 18%);
 }
 
+.notice {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgb(128 220 170 / 28%);
+  border-radius: 10px;
+  color: #b9f6d2;
+  background: rgb(38 120 75 / 18%);
+}
+
+.secondary {
+  min-height: 46px;
+  border: 1px solid #514867;
+  border-radius: 12px;
+  color: #ddd4ef;
+  background: #211c2c;
+  cursor: pointer;
+}
+
+.secondary:hover:not(:disabled) {
+  border-color: #9f7aea;
+  background: #292136;
+}
+
+.secondary:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .submit {
   min-height: 50px;
   margin-top: 4px;

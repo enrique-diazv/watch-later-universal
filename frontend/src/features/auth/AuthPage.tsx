@@ -8,9 +8,12 @@ import {
   useNavigate,
 } from 'react-router-dom'
 
+import {
+  ApiError,
+  resendVerificationEmail,
+} from '../../services/api'
 import { useAuth } from './auth-context'
 import styles from './AuthPage.module.css'
-
 
 type AuthMode = 'login' | 'register'
 
@@ -29,6 +32,16 @@ export function AuthPage() {
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [
+    pendingVerificationEmail,
+    setPendingVerificationEmail,
+  ] = useState<string | null>(null)
+
+  const [notice, setNotice] = useState<string | null>(
+    null,
+  )
+
+  const [isResending, setIsResending] = useState(false)
   const [isSubmitting, setIsSubmitting] = (
     useState(false)
   )
@@ -51,27 +64,54 @@ export function AuthPage() {
     event.preventDefault()
 
     setError(null)
+    setNotice(null)
     setIsSubmitting(true)
 
     try {
       if (mode === 'register') {
+        const normalizedEmail = (
+          email.trim().toLowerCase()
+        )
+
         await register({
-          email,
+          email: normalizedEmail,
           password,
           display_name: displayName,
           country_code: 'MX',
         })
-      } else {
-        await login({
-          email,
-          password,
-        })
+
+        setPendingVerificationEmail(
+          normalizedEmail,
+        )
+        setNotice(
+          'Cuenta creada. Revisa tu correo para ' +
+          'confirmarla antes de iniciar sesión.',
+        )
+        setMode('login')
+        setPassword('')
+
+        return
       }
+
+      await login({
+        email,
+        password,
+      })
 
       navigate('/library', {
         replace: true,
       })
     } catch (submitError) {
+      if (
+        mode === 'login'
+        && submitError instanceof ApiError
+        && submitError.status === 403
+      ) {
+        setPendingVerificationEmail(
+          email.trim().toLowerCase(),
+        )
+      }
+
       setError(
         submitError instanceof Error
           ? submitError.message
@@ -82,9 +122,37 @@ export function AuthPage() {
     }
   }
 
+  async function handleResend() {
+    if (pendingVerificationEmail === null) {
+      return
+    }
+
+    setError(null)
+    setNotice(null)
+    setIsResending(true)
+
+    try {
+      const response = await resendVerificationEmail({
+        email: pendingVerificationEmail,
+      })
+
+      setNotice(response.message)
+    } catch (resendError) {
+      setError(
+        resendError instanceof Error
+          ? resendError.message
+          : 'No fue posible reenviar el correo.',
+      )
+    } finally {
+      setIsResending(false)
+    }
+  }
+
   function changeMode(nextMode: AuthMode) {
     setMode(nextMode)
     setError(null)
+    setNotice(null)
+    setPendingVerificationEmail(null)
   }
 
   return (
@@ -197,10 +265,35 @@ export function AuthPage() {
             </p>
           )}
 
+          {notice && (
+            <p
+              className={styles.notice}
+              role="status"
+            >
+              {notice}
+            </p>
+          )}
+
           {error && (
             <p className={styles.error} role="alert">
               {error}
             </p>
+          )}
+
+          {(
+            mode === 'login'
+            && pendingVerificationEmail !== null
+          ) && (
+            <button
+              className={styles.secondary}
+              type="button"
+              disabled={isResending}
+              onClick={() => void handleResend()}
+            >
+              {isResending
+                ? 'Reenviando...'
+                : 'Reenviar correo de confirmación'}
+            </button>
           )}
 
           <button

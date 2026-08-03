@@ -87,7 +87,11 @@ def rotate_refresh_token(
         stored_token.user_id,
     )
 
-    if user is None or not user.is_active:
+    if (
+        user is None
+        or not user.is_active
+        or not user.is_email_verified
+    ):
         stored_token.revoked_at = now
         return None
 

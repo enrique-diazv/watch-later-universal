@@ -89,15 +89,10 @@ export function AuthProvider({
     setUser(currentUser)
   }
 
-  async function register(
+    async function register(
     payload: RegisterPayload,
   ): Promise<void> {
     await registerUser(payload)
-
-    await login({
-      email: payload.email,
-      password: payload.password,
-    })
   }
 
   async function logout(): Promise<void> {

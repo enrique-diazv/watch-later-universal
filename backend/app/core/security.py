@@ -70,11 +70,29 @@ def decode_access_token(token: str) -> str | None:
 
     return subject
 
-def create_refresh_token() -> str:
+def _create_secure_token() -> str:
     return token_urlsafe(48)
 
 
-def hash_refresh_token(token: str) -> str:
+def _hash_token(token: str) -> str:
     return sha256(
         token.encode("utf-8"),
     ).hexdigest()
+
+
+def create_refresh_token() -> str:
+    return _create_secure_token()
+
+
+def hash_refresh_token(token: str) -> str:
+    return _hash_token(token)
+
+
+def create_email_verification_token() -> str:
+    return _create_secure_token()
+
+
+def hash_email_verification_token(
+    token: str,
+) -> str:
+    return _hash_token(token)
