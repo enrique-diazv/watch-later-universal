@@ -1,6 +1,7 @@
 import {
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -80,6 +81,20 @@ const fakeLibraryItem: LibraryItem = {
   },
 }
 
+const completedFavoriteItem: LibraryItem = {
+  ...fakeLibraryItem,
+  id: 'library-item-2',
+  status: 'completed',
+  is_favorite: true,
+  updated_at: '2026-08-04T00:00:00Z',
+  media: {
+    ...fakeLibraryItem.media,
+    id: 'media-2',
+    tmdb_id: 329865,
+    title: 'Arrival',
+    original_title: 'Arrival',
+  },
+}
 
 function renderLibrary() {
   return renderWithProviders(
@@ -119,8 +134,14 @@ describe('LibraryPage', () => {
       }),
     ).toBeVisible()
 
+    const libraryGrid = within(
+      screen.getByRole('region', {
+        name: 'Contenido guardado',
+      }),
+    )
+
     await user.selectOptions(
-      screen.getByRole('combobox', {
+      libraryGrid.getByRole('combobox', {
         name: 'Estado',
       }),
       'completed',
@@ -168,46 +189,148 @@ describe('LibraryPage', () => {
   })
 
   it('saves a rating selected by half stars', async () => {
-      mockedGetLibraryItems.mockResolvedValue([
-        fakeLibraryItem,
+    mockedGetLibraryItems.mockResolvedValue([
+      fakeLibraryItem,
+    ])
+    mockedUpdateLibraryItem.mockResolvedValue({
+      ...fakeLibraryItem,
+      user_rating: 7,
+    })
+
+    const user = userEvent.setup()
+
+    renderLibrary()
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Editar calificación',
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Calificar con 3.5 estrellas',
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Guardar calificación',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        mockedUpdateLibraryItem,
+      ).toHaveBeenCalledWith(
+        'library-item-1',
+        {
+          user_rating: 7,
+        },
+      )
+    })
+  })
+
+  it('filters the library by status', async () => {
+    mockedGetLibraryItems.mockResolvedValue([
+      fakeLibraryItem,
+      completedFavoriteItem,
+    ])
+
+    const user = userEvent.setup()
+
+    renderLibrary()
+
+    expect(
+      await screen.findByRole('link', {
+        name: 'Matrix',
+      }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('link', {
+        name: 'Arrival',
+      }),
+    ).toBeVisible()
+
+    const filters = within(
+      screen.getByRole('region', {
+        name: 'Filtros de biblioteca',
+      }),
+    )
+
+    await user.selectOptions(
+      filters.getByRole('combobox', {
+        name: 'Estado',
+      }),
+      'completed',
+    )
+
+    expect(
+      screen.queryByRole('link', {
+        name: 'Matrix',
+      }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('link', {
+        name: 'Arrival',
+      }),
+    ).toBeVisible()
+    expect(
+      filters.getByText('1 elemento'),
+    ).toBeVisible()
+
+    await user.click(
+      filters.getByRole('button', {
+        name: 'Limpiar filtros',
+      }),
+    )
+
+    expect(
+      await screen.findByRole('link', {
+        name: 'Matrix',
+      }),
+    ).toBeVisible()
+  })
+
+  it('sorts the library alphabetically', async () => {
+    mockedGetLibraryItems.mockResolvedValue([
+      fakeLibraryItem,
+      completedFavoriteItem,
+    ])
+
+    const user = userEvent.setup()
+
+    renderLibrary()
+
+    const filters = within(
+      await screen.findByRole('region', {
+        name: 'Filtros de biblioteca',
+      }),
+    )
+
+    await user.selectOptions(
+      filters.getByRole('combobox', {
+        name: 'Ordenar',
+      }),
+      'title',
+    )
+
+    const libraryGrid = within(
+      screen.getByRole('region', {
+        name: 'Contenido guardado',
+      }),
+    )
+
+    await waitFor(() => {
+      const titles = libraryGrid
+        .getAllByRole('link')
+        .map((link) => link.textContent)
+
+      expect(titles).toEqual([
+        'Arrival',
+        'Matrix',
       ])
-      mockedUpdateLibraryItem.mockResolvedValue({
-        ...fakeLibraryItem,
-        user_rating: 7,
-      })
-
-      const user = userEvent.setup()
-
-      renderLibrary()
-
-      await user.click(
-        await screen.findByRole('button', {
-          name: 'Editar calificación',
-        }),
-      )
-
-      await user.click(
-        screen.getByRole('button', {
-          name: 'Calificar con 3.5 estrellas',
-        }),
-      )
-
-      await user.click(
-        screen.getByRole('button', {
-          name: 'Guardar calificación',
-        }),
-      )
-
-      await waitFor(() => {
-        expect(
-          mockedUpdateLibraryItem,
-        ).toHaveBeenCalledWith(
-          'library-item-1',
-          {
-            user_rating: 7,
-          },
-        )
-      })
+    })
   })
 
   it('removes an item from the library', async () => {

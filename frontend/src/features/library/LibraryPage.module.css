@@ -98,6 +98,110 @@
   line-height: 1.65;
 }
 
+.filtersPanel {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 28px;
+  padding: 18px;
+  border: 1px solid #302d3d;
+  border-radius: 16px;
+  background: rgb(20 21 29 / 88%);
+  box-shadow: 0 14px 38px rgb(0 0 0 / 16%);
+}
+
+.filtersGrid {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(150px, 1fr)) auto auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.filterControl {
+  display: grid;
+  gap: 7px;
+  color: #d8d5df;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.filterControl select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #464155;
+  border-radius: 9px;
+  outline: none;
+  color: #fff;
+  background: #101118;
+}
+
+.filterControl select:focus {
+  border-color: #b998ff;
+}
+
+.favoriteFilter {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid #464155;
+  border-radius: 9px;
+  color: #e5e1eb;
+  background: #24212e;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.favoriteFilter input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #a87cff;
+}
+
+.clearFiltersButton,
+.noResults button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid #7047d7;
+  border-radius: 9px;
+  color: #e9ddff;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.clearFiltersButton:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.resultsCount {
+  margin: 0;
+  color: #aaa7b5;
+  font-size: 0.88rem;
+}
+
+.noResults {
+  padding: 34px;
+  border: 1px dashed #464155;
+  border-radius: 16px;
+  text-align: center;
+  background: rgb(20 21 29 / 65%);
+}
+
+.noResults h2 {
+  margin: 0 0 8px;
+}
+
+.noResults p {
+  margin: 0 0 18px;
+  color: #aaa7b5;
+}
+
 .grid {
   display: grid;
   grid-template-columns:
@@ -203,7 +307,28 @@
   background: transparent;
 }
 
+@media (max-width: 900px) {
+  .filtersGrid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 700px) {
+
+  .filtersPanel {
+    padding: 14px;
+  }
+
+  .filtersGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .favoriteFilter,
+  .clearFiltersButton {
+    width: 100%;
+  }
+
   .page {
     width: min(100% - 22px, 1180px);
     padding: 34px 0 48px;
@@ -225,8 +350,8 @@
   }
 
   .grid {
-  grid-template-columns: 1fr;
-  gap: 16px;
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .cardContent {
