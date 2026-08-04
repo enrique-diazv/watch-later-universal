@@ -9,27 +9,27 @@ import styles from './SearchPage.module.css'
 
 export function SearchPage() {
   const [query, setQuery] = useState('')
-
+  const [page, setPage] = useState(1)
   const {
     isAuthenticated,
     isLoading: isAuthLoading,
   } = useAuth()
 
-const libraryQuery = useQuery({
-  queryKey: ['library'],
-  queryFn: getLibraryItems,
-  enabled: (
-    isAuthenticated &&
-    !isAuthLoading
-  ),
-})
+  const libraryQuery = useQuery({
+    queryKey: ['library'],
+    queryFn: getLibraryItems,
+    enabled: (
+      isAuthenticated &&
+      !isAuthLoading
+    ),
+  })
 
-const savedMediaKeys = new Set(
-  (libraryQuery.data ?? []).map(
-    (item) =>
-      `${item.media.media_type}-${item.media.tmdb_id}`,
-  ),
-)
+  const savedMediaKeys = new Set(
+    (libraryQuery.data ?? []).map(
+      (item) =>
+        `${item.media.media_type}-${item.media.tmdb_id}`,
+    ),
+  )
   const normalizedQuery = query.trim()
   const debouncedQuery = useDebouncedValue(
     normalizedQuery,
@@ -38,16 +38,20 @@ const savedMediaKeys = new Set(
   const canSearch = debouncedQuery.length >= 2
 
   const searchQuery = useQuery({
-    queryKey: ['search', debouncedQuery],
-    queryFn: () => searchMedia(debouncedQuery),
+    queryKey: ['search', debouncedQuery, page],
+    queryFn: () => searchMedia(
+      debouncedQuery,
+      page,
+    ),
     enabled: canSearch,
   })
 
   const results = searchQuery.data?.results ?? []
-
+  const currentPage = searchQuery.data?.page ?? page
+  const totalPages = searchQuery.data?.total_pages ?? 0
   return (
     <main className={styles.page}>
-            <header className={styles.hero}>
+      <header className={styles.hero}>
         <div className={styles.heroCopy}>
           <h1>Watch Later Universal</h1>
           <p>
@@ -93,6 +97,7 @@ const savedMediaKeys = new Set(
           placeholder="Ejemplo: Matrix"
           onChange={(event) => {
             setQuery(event.target.value)
+            setPage(1)
           }}
         />
 
@@ -141,31 +146,31 @@ const savedMediaKeys = new Set(
                   result.tmdb_id
                 }
               >
-              <div className={styles.posterFrame}>
-                {result.poster_url ? (
-                  <img
-                    className={styles.poster}
-                    src={result.poster_url}
-                    alt={`Póster de ${result.title}`}
-                    loading="lazy"
-                  />
-                ) : (
-                  <div
-                    className={styles.posterPlaceholder}
-                    aria-hidden="true"
-                  >
-                    Sin póster
-                  </div>
-                )}
+                <div className={styles.posterFrame}>
+                  {result.poster_url ? (
+                    <img
+                      className={styles.poster}
+                      src={result.poster_url}
+                      alt={`Póster de ${result.title}`}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div
+                      className={styles.posterPlaceholder}
+                      aria-hidden="true"
+                    >
+                      Sin póster
+                    </div>
+                  )}
 
-                {savedMediaKeys.has(
-                  `${result.media_type}-${result.tmdb_id}`,
-                ) && (
-                  <span className={styles.savedBadge}>
-                    Guardado en tu biblioteca
-                  </span>
-                )}
-              </div>
+                  {savedMediaKeys.has(
+                    `${result.media_type}-${result.tmdb_id}`,
+                  ) && (
+                      <span className={styles.savedBadge}>
+                        Guardado en tu biblioteca
+                      </span>
+                    )}
+                </div>
 
                 <div className={styles.cardContent}>
                   <h3>
@@ -198,6 +203,49 @@ const savedMediaKeys = new Set(
               </article>
             ))}
           </div>
+          {totalPages > 1 && (
+            <nav
+              className={styles.pagination}
+              aria-label="Paginación de resultados"
+            >
+              <button
+                type="button"
+                disabled={
+                  currentPage <= 1 ||
+                  searchQuery.isFetching
+                }
+                onClick={() => {
+                  setPage((currentPageValue) =>
+                    Math.max(1, currentPageValue - 1),
+                  )
+                }}
+              >
+                ← Anterior
+              </button>
+
+              <p>
+                Página {currentPage} de {totalPages}
+              </p>
+
+              <button
+                type="button"
+                disabled={
+                  currentPage >= totalPages ||
+                  searchQuery.isFetching
+                }
+                onClick={() => {
+                  setPage((currentPageValue) =>
+                    Math.min(
+                      totalPages,
+                      currentPageValue + 1,
+                    ),
+                  )
+                }}
+              >
+                Siguiente →
+              </button>
+            </nav>
+          )}
         </section>
       )}
     </main>

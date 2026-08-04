@@ -76,12 +76,62 @@ describe('SearchPage', () => {
 
     expect(mockedSearchMedia).toHaveBeenCalledWith(
       'matrix',
+      1,
     )
+
     expect(resultLink).toHaveAttribute(
       'href',
       '/media/movie/603',
     )
   })
+
+  it('navigates to the next result page', async () => {
+    mockedSearchMedia.mockImplementation(
+      (_query, requestedPage = 1) =>
+        Promise.resolve({
+          ...fakeResponse,
+          page: requestedPage,
+          total_pages: 2,
+        }),
+    )
+
+    const user = userEvent.setup()
+
+    renderWithProviders(<SearchPage />)
+
+    await user.type(
+      screen.getByRole('searchbox', {
+        name: /título/i,
+      }),
+      'matrix',
+    )
+
+    expect(
+      await screen.findByText('Página 1 de 2'),
+    ).toBeVisible()
+
+    expect(
+      screen.getByRole('button', {
+        name: /anterior/i,
+      }),
+    ).toBeDisabled()
+
+    await user.click(
+      screen.getByRole('button', {
+        name: /siguiente/i,
+      }),
+    )
+
+    expect(
+      await screen.findByText('Página 2 de 2'),
+    ).toBeVisible()
+
+    expect(mockedSearchMedia).toHaveBeenCalledWith(
+      'matrix',
+      2,
+    )
+  })
+
   it('marks results already saved in the library', async () => {
     mockedSearchMedia.mockResolvedValue(fakeResponse)
 

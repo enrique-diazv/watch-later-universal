@@ -223,3 +223,48 @@
   font-weight: 700;
   line-height: 1.15;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.pagination p {
+  margin: 0;
+  color: #d8d3e7;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pagination button {
+  border: 1px solid #a98cff;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  background: #211a32;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #6f45e8;
+}
+
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 520px) {
+  .pagination {
+    gap: 0.6rem;
+  }
+
+  .pagination button {
+    padding-inline: 0.75rem;
+  }
+}
