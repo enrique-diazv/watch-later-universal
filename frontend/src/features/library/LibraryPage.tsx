@@ -1,3 +1,4 @@
+import type { FormEvent } from 'react'
 import {
   useMutation,
   useQuery,
@@ -69,12 +70,13 @@ export function LibraryPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: deleteLibraryItem,
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ['library'],
-      }),
-  })
+  mutationFn: (itemId: string) =>
+    deleteLibraryItem(itemId),
+  onSuccess: () =>
+    queryClient.invalidateQueries({
+      queryKey: ['library'],
+    }),
+})
 
   if (isLoading) {
     return (
@@ -97,7 +99,36 @@ export function LibraryPage() {
       })
     }
   }
+  function handleDetailsSubmit(
+    event: FormEvent<HTMLFormElement>,
+    itemId: string,
+  ) {
+    event.preventDefault()
 
+    const formData = new FormData(
+      event.currentTarget,
+    )
+    const ratingValue = String(
+      formData.get('user_rating') ?? '',
+    ).trim()
+    const notesValue = String(
+      formData.get('notes') ?? '',
+    ).trim()
+
+    updateMutation.mutate({
+      itemId,
+      payload: {
+        user_rating:
+          ratingValue === ''
+            ? null
+            : Number(ratingValue),
+        notes:
+          notesValue === ''
+            ? null
+            : notesValue,
+      },
+    })
+  }
   return (
     <main className={styles.page}>
       <header className={styles.header}>
@@ -248,6 +279,54 @@ export function LibraryPage() {
                         ))}
                       </select>
                     </label>
+                    <form
+                      className={styles.detailsForm}
+                      onSubmit={(event) =>
+                        handleDetailsSubmit(
+                          event,
+                          item.id,
+                        )
+                      }
+                    >
+                      <label className={styles.ratingControl}>
+                        <span>Tu calificación</span>
+                        <input
+                          name="user_rating"
+                          type="number"
+                          min="0"
+                          max="10"
+                          step="0.5"
+                          defaultValue={
+                            item.user_rating ?? ''
+                          }
+                          disabled={isUpdating}
+                          placeholder="0–10"
+                        />
+                      </label>
+
+                      <label className={styles.notesControl}>
+                        <span>Notas personales</span>
+                        <textarea
+                          name="notes"
+                          rows={3}
+                          maxLength={2000}
+                          defaultValue={item.notes ?? ''}
+                          disabled={isUpdating}
+                          placeholder="¿Qué te interesa recordar?"
+                        />
+                      </label>
+
+                      <button
+                        type="submit"
+                        disabled={isUpdating}
+                      >
+                        {isUpdating
+                          ? 'Guardando...'
+                          : 'Guardar detalles'}
+                      </button>
+                    </form>
+
+
 
                     <div className={styles.actions}>
                       <button
