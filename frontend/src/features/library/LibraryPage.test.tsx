@@ -167,50 +167,48 @@ describe('LibraryPage', () => {
     )
   })
 
-  it('saves a personal rating and notes', async () => {
-  mockedGetLibraryItems.mockResolvedValue([
-    fakeLibraryItem,
-  ])
-  mockedUpdateLibraryItem.mockResolvedValue({
-    ...fakeLibraryItem,
-    user_rating: 8.5,
-    notes: 'Volver a verla con atención.',
+  it('saves a rating selected by half stars', async () => {
+      mockedGetLibraryItems.mockResolvedValue([
+        fakeLibraryItem,
+      ])
+      mockedUpdateLibraryItem.mockResolvedValue({
+        ...fakeLibraryItem,
+        user_rating: 7,
+      })
+
+      const user = userEvent.setup()
+
+      renderLibrary()
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: 'Editar calificación',
+        }),
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Calificar con 3.5 estrellas',
+        }),
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Guardar calificación',
+        }),
+      )
+
+      await waitFor(() => {
+        expect(
+          mockedUpdateLibraryItem,
+        ).toHaveBeenCalledWith(
+          'library-item-1',
+          {
+            user_rating: 7,
+          },
+        )
+      })
   })
-
-  const user = userEvent.setup()
-
-  renderLibrary()
-
-  await user.type(
-    await screen.findByRole('spinbutton', {
-      name: 'Tu calificación',
-    }),
-    '8.5',
-  )
-  await user.type(
-    screen.getByRole('textbox', {
-      name: 'Notas personales',
-    }),
-    'Volver a verla con atención.',
-  )
-  await user.click(
-    screen.getByRole('button', {
-      name: 'Guardar detalles',
-    }),
-  )
-
-  await waitFor(() => {
-    expect(
-      mockedUpdateLibraryItem,
-    ).toHaveBeenCalledWith(
-      'library-item-1',
-      {
-        user_rating: 8.5,
-        notes: 'Volver a verla con atención.',
-      },
-    )
-  })
-})
 
   it('removes an item from the library', async () => {
     mockedGetLibraryItems.mockResolvedValue([

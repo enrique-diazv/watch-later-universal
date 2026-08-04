@@ -101,7 +101,7 @@
 .grid {
   display: grid;
   grid-template-columns:
-    repeat(auto-fill, minmax(230px, 1fr));
+    repeat(auto-fill, minmax(290px, 1fr));
   gap: 22px;
 }
 
@@ -225,70 +225,12 @@
   }
 
   .grid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-    gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 16px;
   }
 
   .cardContent {
     padding: 13px;
-  }
-
-  .detailsForm {
-    display: grid;
-    gap: 12px;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #302d3d;
-  }
-
-  .ratingControl,
-  .notesControl {
-    display: grid;
-    gap: 7px;
-    color: #d8d5df;
-    font-size: 0.88rem;
-    font-weight: 650;
-  }
-
-  .detailsForm input,
-  .detailsForm textarea {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 10px 11px;
-    border: 1px solid #464155;
-    border-radius: 9px;
-    outline: none;
-    color: #fff;
-    background: #101118;
-    font: inherit;
-  }
-
-  .detailsForm textarea {
-    min-height: 82px;
-    resize: vertical;
-    line-height: 1.45;
-  }
-
-  .detailsForm input:focus,
-  .detailsForm textarea:focus {
-    border-color: #b998ff;
-  }
-
-  .detailsForm button {
-    padding: 10px 12px;
-    border: 0;
-    border-radius: 9px;
-    color: #100d17;
-    background:
-      linear-gradient(135deg, #d1b4ff, #9f7aea);
-    font-weight: 750;
-    cursor: pointer;
-  }
-
-  .detailsForm button:disabled {
-    cursor: wait;
-    opacity: 0.6;
   }
 
   .actions {
