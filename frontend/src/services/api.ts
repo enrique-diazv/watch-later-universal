@@ -8,6 +8,8 @@ import type {
   SearchResponse,
   WatchProvidersResponse,
   LoginPayload,
+  PasswordResetConfirmPayload,
+  PasswordResetRequestPayload,
   RegisterPayload,
   TokenResponse,
   User,
@@ -186,6 +188,29 @@ export function resendVerificationEmail(
 ): Promise<MessageResponse> {
   return requestJson<MessageResponse>(
     '/auth/resend-verification',
+    {
+      method: 'POST',
+      body: payload,
+    },
+  )
+}
+export function requestPasswordReset(
+  payload: PasswordResetRequestPayload,
+): Promise<MessageResponse> {
+  return requestJson<MessageResponse>(
+    '/auth/forgot-password',
+    {
+      method: 'POST',
+      body: payload,
+    },
+  )
+}
+
+export function resetPassword(
+  payload: PasswordResetConfirmPayload,
+): Promise<MessageResponse> {
+  return requestJson<MessageResponse>(
+    '/auth/reset-password',
     {
       method: 'POST',
       body: payload,

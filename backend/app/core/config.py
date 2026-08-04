@@ -22,20 +22,18 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     email_verification_token_expire_hours: int = 24
     email_verification_resend_cooldown_seconds: int = 60
+    password_reset_token_expire_minutes: int = 30
+    password_reset_request_cooldown_seconds: int = 60
     frontend_base_url: str = "http://localhost:5173"
     email_delivery_mode: Literal[
         "console",
         "brevo",
     ] = "console"
 
-    brevo_api_url: str = (
-        "https://api.brevo.com/v3/smtp/email"
-    )
+    brevo_api_url: str = "https://api.brevo.com/v3/smtp/email"
     brevo_api_key: SecretStr | None = None
 
-    email_from_address: str = (
-        "no-reply@watch-later.local"
-    )
+    email_from_address: str = "no-reply@watch-later.local"
     email_from_name: str = "Watch Later Universal"
     email_request_timeout_seconds: float = 10.0
     refresh_cookie_name: str = "refresh_token"
@@ -44,6 +42,8 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
     )
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

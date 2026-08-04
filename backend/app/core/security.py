@@ -96,3 +96,12 @@ def hash_email_verification_token(
     token: str,
 ) -> str:
     return _hash_token(token)
+
+def create_password_reset_token() -> str:
+    return _create_secure_token()
+
+
+def hash_password_reset_token(
+    token: str,
+) -> str:
+    return _hash_token(token)

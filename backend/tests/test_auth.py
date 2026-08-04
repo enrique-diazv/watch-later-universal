@@ -14,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import get_settings
 from app.core.security import (
     decode_access_token,
+    hash_password_reset_token,
     hash_refresh_token,
     verify_password,
 )
@@ -21,6 +22,9 @@ from app.db.session import get_db_session
 from app.main import app
 from app.models.email_verification_token import (
     EmailVerificationToken,
+)
+from app.models.password_reset_token import (
+    PasswordResetToken,
 )
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -37,8 +41,7 @@ TestSessionFactory = sessionmaker(
 )
 
 
-def override_get_db_session(
-) -> Generator[Session, None, None]:
+def override_get_db_session() -> Generator[Session, None, None]:
     with TestSessionFactory() as session:
         yield session
 
@@ -60,6 +63,10 @@ def client(
         "JWT_SECRET_KEY",
         "test-secret-only-for-automated-tests",
     )
+    monkeypatch.setenv(
+        "EMAIL_DELIVERY_MODE",
+        "console",
+    )
 
     get_settings.cache_clear()
 
@@ -73,22 +80,23 @@ def client(
         checkfirst=True,
     )
 
+    PasswordResetToken.__table__.create(
+        bind=test_engine,
+        checkfirst=True,
+    )
     RefreshToken.__table__.create(
         bind=test_engine,
         checkfirst=True,
     )
 
     with TestSessionFactory() as session:
-        session.execute(
-            delete(EmailVerificationToken)
-        )
+        session.execute(delete(EmailVerificationToken))
+        session.execute(delete(PasswordResetToken))
         session.execute(delete(RefreshToken))
         session.execute(delete(User))
         session.commit()
 
-    app.dependency_overrides[get_db_session] = (
-        override_get_db_session
-    )
+    app.dependency_overrides[get_db_session] = override_get_db_session
 
     with TestClient(app) as test_client:
         yield test_client
@@ -99,6 +107,7 @@ def client(
     )
 
     get_settings.cache_clear()
+
 
 def mark_user_as_verified(
     email: str = "learner@example.com",
@@ -145,9 +154,7 @@ def test_register_creates_user_with_hashed_password(
                 User.email == "learner@example.com",
             )
         )
-        verification_token = session.scalar(
-            select(EmailVerificationToken)
-        )
+        verification_token = session.scalar(select(EmailVerificationToken))
 
     assert user is not None
     assert verification_token is not None
@@ -188,6 +195,7 @@ def test_register_rejects_duplicate_email(
         "detail": "El correo ya está registrado.",
     }
 
+
 def test_email_verification_allows_login(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -199,15 +207,12 @@ def test_email_verification_allows_login(
         display_name: str,
         raw_token: str,
     ) -> None:
-        assert recipient_email == (
-            "learner@example.com"
-        )
+        assert recipient_email == ("learner@example.com")
         assert display_name == "Learner"
         sent_tokens.append(raw_token)
 
     monkeypatch.setattr(
-        "app.api.v1.endpoints.auth."
-        "send_verification_email",
+        "app.api.v1.endpoints.auth." "send_verification_email",
         capture_verification_email,
     )
 
@@ -234,10 +239,7 @@ def test_email_verification_allows_login(
 
     assert blocked_login_response.status_code == 403
     assert blocked_login_response.json() == {
-        "detail": (
-            "Debes confirmar tu correo antes "
-            "de iniciar sesión."
-        ),
+        "detail": ("Debes confirmar tu correo antes " "de iniciar sesión."),
     }
 
     verification_response = client.post(
@@ -249,9 +251,7 @@ def test_email_verification_allows_login(
 
     assert verification_response.status_code == 200
     assert verification_response.json() == {
-        "message": (
-            "Tu correo fue verificado correctamente."
-        ),
+        "message": ("Tu correo fue verificado correctamente."),
     }
 
     repeated_response = client.post(
@@ -279,14 +279,13 @@ def test_email_verification_allows_login(
                 User.email == "learner@example.com",
             )
         )
-        stored_token = session.scalar(
-            select(EmailVerificationToken)
-        )
+        stored_token = session.scalar(select(EmailVerificationToken))
 
     assert user is not None
     assert user.is_email_verified is True
     assert stored_token is not None
     assert stored_token.used_at is not None
+
 
 def test_resend_verification_respects_cooldown(
     client: TestClient,
@@ -302,8 +301,7 @@ def test_resend_verification_respects_cooldown(
         sent_tokens.append(raw_token)
 
     monkeypatch.setattr(
-        "app.api.v1.endpoints.auth."
-        "send_verification_email",
+        "app.api.v1.endpoints.auth." "send_verification_email",
         capture_verification_email,
     )
 
@@ -330,16 +328,11 @@ def test_resend_verification_respects_cooldown(
     assert len(sent_tokens) == 1
 
     with TestSessionFactory() as session:
-        stored_token = session.scalar(
-            select(EmailVerificationToken)
-        )
+        stored_token = session.scalar(select(EmailVerificationToken))
 
         assert stored_token is not None
 
-        stored_token.created_at = (
-            datetime.now(timezone.utc)
-            - timedelta(seconds=61)
-        )
+        stored_token.created_at = datetime.now(timezone.utc) - timedelta(seconds=61)
         session.commit()
 
     resend_response = client.post(
@@ -370,6 +363,219 @@ def test_resend_verification_respects_cooldown(
     )
 
     assert new_token_response.status_code == 200
+
+
+def test_forgot_password_stores_hashed_token(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_email: dict[str, str] = {}
+
+    def capture_password_reset_email(
+        recipient_email: str,
+        display_name: str,
+        raw_token: str,
+    ) -> None:
+        captured_email["recipient_email"] = recipient_email
+        captured_email["display_name"] = display_name
+        captured_email["raw_token"] = raw_token
+
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.auth." "send_password_reset_email",
+        capture_password_reset_email,
+    )
+
+    registration_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": "safe-learning-password",
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    assert registration_response.status_code == 201
+
+    mark_user_as_verified()
+
+    response = client.post(
+        "/api/v1/auth/forgot-password",
+        json={
+            "email": " LEARNER@example.com ",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {
+        "message": (
+            "Si existe una cuenta verificada con ese "
+            "correo, enviaremos instrucciones para "
+            "restablecer la contraseña."
+        ),
+    }
+
+    with TestSessionFactory() as session:
+        stored_token = session.scalar(select(PasswordResetToken))
+
+    raw_token = captured_email["raw_token"]
+
+    assert captured_email["recipient_email"] == ("learner@example.com")
+    assert captured_email["display_name"] == "Learner"
+    assert stored_token is not None
+    assert stored_token.token_hash != raw_token
+    assert stored_token.token_hash == (hash_password_reset_token(raw_token))
+    assert stored_token.used_at is None
+
+
+def test_reset_password_changes_password_and_revokes_sessions(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_email: dict[str, str] = {}
+
+    def capture_password_reset_email(
+        recipient_email: str,
+        display_name: str,
+        raw_token: str,
+    ) -> None:
+        captured_email["raw_token"] = raw_token
+
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.auth." "send_password_reset_email",
+        capture_password_reset_email,
+    )
+
+    old_password = "safe-learning-password"
+    new_password = "new-safe-learning-password"
+
+    registration_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "learner@example.com",
+            "password": old_password,
+            "display_name": "Learner",
+            "country_code": "MX",
+        },
+    )
+
+    assert registration_response.status_code == 201
+
+    mark_user_as_verified()
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": old_password,
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    request_response = client.post(
+        "/api/v1/auth/forgot-password",
+        json={
+            "email": "learner@example.com",
+        },
+    )
+
+    assert request_response.status_code == 202
+
+    reset_response = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": captured_email["raw_token"],
+            "new_password": new_password,
+        },
+    )
+
+    assert reset_response.status_code == 200
+    assert reset_response.json() == {
+        "message": ("Tu contraseña fue actualizada " "correctamente."),
+    }
+    reused_response = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": captured_email["raw_token"],
+            "new_password": "another-safe-password",
+        },
+    )
+
+    assert reused_response.status_code == 400
+    assert reused_response.json() == {
+        "detail": (
+            "El enlace de recuperación no es "
+            "válido o ya expiró."
+        ),
+    }
+    with TestSessionFactory() as session:
+        user = session.scalar(
+            select(User).where(
+                User.email == "learner@example.com",
+            )
+        )
+        stored_token = session.scalar(select(PasswordResetToken))
+        stored_refresh_tokens = list(session.scalars(select(RefreshToken)).all())
+
+    assert user is not None
+    assert stored_token is not None
+    assert stored_token.used_at is not None
+    assert verify_password(
+        new_password,
+        user.password_hash,
+    )
+    assert not verify_password(
+        old_password,
+        user.password_hash,
+    )
+    assert stored_refresh_tokens
+    assert all(token.revoked_at is not None for token in stored_refresh_tokens)
+
+    old_login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": old_password,
+        },
+    )
+
+    assert old_login_response.status_code == 401
+
+    new_login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "learner@example.com",
+            "password": new_password,
+        },
+    )
+
+    assert new_login_response.status_code == 200
+def test_forgot_password_does_not_reveal_unknown_email(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/auth/forgot-password",
+        json={
+            "email": "unknown@example.com",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {
+        "message": (
+            "Si existe una cuenta verificada con ese "
+            "correo, enviaremos instrucciones para "
+            "restablecer la contraseña."
+        ),
+    }
+
+    with TestSessionFactory() as session:
+        stored_token = session.scalar(
+            select(PasswordResetToken)
+        )
+
+    assert stored_token is None
 
 def test_login_returns_valid_access_token(
     client: TestClient,
@@ -402,10 +608,8 @@ def test_login_returns_valid_access_token(
 
     assert data["token_type"] == "bearer"
     assert data["expires_in"] == 1800
-    assert (
-        decode_access_token(data["access_token"])
-        == user_id
-    )
+    assert decode_access_token(data["access_token"]) == user_id
+
 
 def test_login_rejects_wrong_password(
     client: TestClient,
@@ -432,10 +636,7 @@ def test_login_rejects_wrong_password(
     assert response.json() == {
         "detail": "Correo o contraseña incorrectos.",
     }
-    assert (
-        response.headers["www-authenticate"]
-        == "Bearer"
-    )
+    assert response.headers["www-authenticate"] == "Bearer"
 
 
 def test_login_rejects_unknown_email(
@@ -453,10 +654,8 @@ def test_login_rejects_unknown_email(
     assert response.json() == {
         "detail": "Correo o contraseña incorrectos.",
     }
-    assert (
-        response.headers["www-authenticate"]
-        == "Bearer"
-    )
+    assert response.headers["www-authenticate"] == "Bearer"
+
 
 def test_me_returns_authenticated_user(
     client: TestClient,
@@ -483,16 +682,12 @@ def test_me_returns_authenticated_user(
         },
     )
 
-    access_token = login_response.json()[
-        "access_token"
-    ]
+    access_token = login_response.json()["access_token"]
 
     response = client.get(
         "/api/v1/auth/me",
         headers={
-            "Authorization": (
-                f"Bearer {access_token}"
-            ),
+            "Authorization": (f"Bearer {access_token}"),
         },
     )
 
@@ -506,6 +701,7 @@ def test_me_returns_authenticated_user(
     assert "password" not in data
     assert "password_hash" not in data
 
+
 def test_me_rejects_missing_token(
     client: TestClient,
 ) -> None:
@@ -515,14 +711,9 @@ def test_me_rejects_missing_token(
 
     assert response.status_code == 401
     assert response.json() == {
-        "detail": (
-            "No se pudieron validar las credenciales."
-        ),
+        "detail": ("No se pudieron validar las credenciales."),
     }
-    assert (
-        response.headers["www-authenticate"]
-        == "Bearer"
-    )
+    assert response.headers["www-authenticate"] == "Bearer"
 
 
 def test_me_rejects_invalid_token(
@@ -537,14 +728,10 @@ def test_me_rejects_invalid_token(
 
     assert response.status_code == 401
     assert response.json() == {
-        "detail": (
-            "No se pudieron validar las credenciales."
-        ),
+        "detail": ("No se pudieron validar las credenciales."),
     }
-    assert (
-        response.headers["www-authenticate"]
-        == "Bearer"
-    )
+    assert response.headers["www-authenticate"] == "Bearer"
+
 
 def test_login_sets_hashed_refresh_token_cookie(
     client: TestClient,
@@ -571,27 +758,19 @@ def test_login_sets_hashed_refresh_token_cookie(
 
     assert response.status_code == 200
 
-    raw_refresh_token = response.cookies.get(
-        "refresh_token"
-    )
+    raw_refresh_token = response.cookies.get("refresh_token")
 
     assert raw_refresh_token is not None
     assert "HttpOnly" in response.headers["set-cookie"]
-    assert (
-        "Path=/api/v1/auth"
-        in response.headers["set-cookie"]
-    )
+    assert "Path=/api/v1/auth" in response.headers["set-cookie"]
 
     with TestSessionFactory() as session:
-        stored_token = session.scalar(
-            select(RefreshToken)
-        )
+        stored_token = session.scalar(select(RefreshToken))
 
     assert stored_token is not None
     assert stored_token.token_hash != raw_refresh_token
-    assert stored_token.token_hash == (
-        hash_refresh_token(raw_refresh_token)
-    )
+    assert stored_token.token_hash == (hash_refresh_token(raw_refresh_token))
+
 
 def test_refresh_rotates_token_and_returns_access_token(
     client: TestClient,
@@ -618,9 +797,7 @@ def test_refresh_rotates_token_and_returns_access_token(
         },
     )
 
-    old_refresh_token = login_response.cookies.get(
-        "refresh_token"
-    )
+    old_refresh_token = login_response.cookies.get("refresh_token")
 
     assert old_refresh_token is not None
 
@@ -630,46 +807,33 @@ def test_refresh_rotates_token_and_returns_access_token(
 
     assert refresh_response.status_code == 200
 
-    new_refresh_token = refresh_response.cookies.get(
-        "refresh_token"
-    )
+    new_refresh_token = refresh_response.cookies.get("refresh_token")
     data = refresh_response.json()
 
     assert new_refresh_token is not None
     assert new_refresh_token != old_refresh_token
-    assert (
-        decode_access_token(data["access_token"])
-        == user_id
-    )
+    assert decode_access_token(data["access_token"]) == user_id
 
     with TestSessionFactory() as session:
-        stored_tokens = list(
-            session.scalars(
-                select(RefreshToken)
-            ).all()
-        )
+        stored_tokens = list(session.scalars(select(RefreshToken)).all())
 
     assert len(stored_tokens) == 2
 
     old_stored_token = next(
         token
         for token in stored_tokens
-        if token.token_hash
-        == hash_refresh_token(old_refresh_token)
+        if token.token_hash == hash_refresh_token(old_refresh_token)
     )
     new_stored_token = next(
         token
         for token in stored_tokens
-        if token.token_hash
-        == hash_refresh_token(new_refresh_token)
+        if token.token_hash == hash_refresh_token(new_refresh_token)
     )
 
     assert old_stored_token.revoked_at is not None
     assert new_stored_token.revoked_at is None
-    assert (
-        old_stored_token.family_id
-        == new_stored_token.family_id
-    )
+    assert old_stored_token.family_id == new_stored_token.family_id
+
 
 def test_refresh_rejects_missing_cookie(
     client: TestClient,
@@ -680,9 +844,7 @@ def test_refresh_rejects_missing_cookie(
 
     assert response.status_code == 401
     assert response.json() == {
-        "detail": (
-            "No se pudieron validar las credenciales."
-        ),
+        "detail": ("No se pudieron validar las credenciales."),
     }
 
 
@@ -707,9 +869,7 @@ def test_refresh_reuse_revokes_token_family(
         },
     )
 
-    old_refresh_token = login_response.cookies.get(
-        "refresh_token"
-    )
+    old_refresh_token = login_response.cookies.get("refresh_token")
 
     assert old_refresh_token is not None
 
@@ -743,6 +903,7 @@ def test_refresh_reuse_revokes_token_family(
 
     assert active_tokens == []
 
+
 def test_logout_revokes_session_and_clears_cookie(
     client: TestClient,
 ) -> None:
@@ -770,15 +931,10 @@ def test_logout_revokes_session_and_clears_cookie(
 
     assert logout_response.status_code == 204
     assert logout_response.content == b""
-    assert (
-        client.cookies.get("refresh_token")
-        is None
-    )
+    assert client.cookies.get("refresh_token") is None
 
     with TestSessionFactory() as session:
-        stored_token = session.scalar(
-            select(RefreshToken)
-        )
+        stored_token = session.scalar(select(RefreshToken))
 
     assert stored_token is not None
     assert stored_token.revoked_at is not None
@@ -788,6 +944,7 @@ def test_logout_revokes_session_and_clears_cookie(
     )
 
     assert refresh_response.status_code == 401
+
 
 def test_logout_without_cookie_is_idempotent(
     client: TestClient,

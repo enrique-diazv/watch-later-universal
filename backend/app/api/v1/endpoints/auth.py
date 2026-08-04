@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import (
@@ -27,6 +28,8 @@ from app.schemas.user import (
     EmailVerificationConfirm,
     EmailVerificationResend,
     MessageResponse,
+    PasswordResetConfirm,
+    PasswordResetRequest,
     TokenResponse,
     UserCreate,
     UserLogin,
@@ -40,6 +43,7 @@ from app.services.auth import (
 
 from app.services.email import (
     EmailDeliveryError,
+    send_password_reset_email,
     send_verification_email,
 )
 from app.services.email_verification import (
@@ -48,12 +52,20 @@ from app.services.email_verification import (
     issue_email_verification_token,
 )
 
+from app.services.password_reset import (
+    can_request_password_reset,
+    consume_password_reset_token,
+    issue_password_reset_token,
+)
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 DatabaseSession = Annotated[
     Session,
     Depends(get_db_session),
 ]
+
 
 def set_refresh_cookie(
     response: Response,
@@ -64,17 +76,13 @@ def set_refresh_cookie(
     response.set_cookie(
         key=settings.refresh_cookie_name,
         value=token,
-        max_age=(
-            settings.refresh_token_expire_days
-            * 24
-            * 60
-            * 60
-        ),
+        max_age=(settings.refresh_token_expire_days * 24 * 60 * 60),
         httponly=True,
         secure=settings.refresh_cookie_secure,
         samesite="lax",
         path="/api/v1/auth",
     )
+
 
 def clear_refresh_cookie(
     response: Response,
@@ -88,6 +96,7 @@ def clear_refresh_cookie(
         httponly=True,
         samesite="lax",
     )
+
 
 @router.post(
     "/register",
@@ -123,11 +132,9 @@ def register_user(
     try:
         session.flush()
 
-        raw_token, _ = (
-            issue_email_verification_token(
-                session,
-                user.id,
-            )
+        raw_token, _ = issue_email_verification_token(
+            session,
+            user.id,
         )
 
         session.commit()
@@ -149,9 +156,7 @@ def register_user(
         )
     except EmailDeliveryError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_503_SERVICE_UNAVAILABLE
-            ),
+            status_code=(status.HTTP_503_SERVICE_UNAVAILABLE),
             detail=(
                 "La cuenta fue creada, pero no fue "
                 "posible enviar la confirmación. "
@@ -160,6 +165,7 @@ def register_user(
         ) from error
 
     return user
+
 
 @router.post(
     "/verify-email",
@@ -179,10 +185,7 @@ def verify_email(
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El enlace de verificación no es "
-                "válido o ya expiró."
-            ),
+            detail=("El enlace de verificación no es " "válido o ya expiró."),
         )
 
     session.commit()
@@ -212,11 +215,7 @@ def resend_verification_email(
         )
     )
 
-    if (
-        user is None
-        or not user.is_active
-        or user.is_email_verified
-    ):
+    if user is None or not user.is_active or user.is_email_verified:
         return MessageResponse(
             message=generic_message,
         )
@@ -243,9 +242,7 @@ def resend_verification_email(
         )
     except EmailDeliveryError as error:
         raise HTTPException(
-            status_code=(
-                status.HTTP_503_SERVICE_UNAVAILABLE
-            ),
+            status_code=(status.HTTP_503_SERVICE_UNAVAILABLE),
             detail=(
                 "No fue posible enviar el correo "
                 "de verificación. Inténtalo más tarde."
@@ -253,6 +250,104 @@ def resend_verification_email(
         ) from error
     return MessageResponse(
         message=generic_message,
+    )
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def request_password_reset(
+    payload: PasswordResetRequest,
+    session: DatabaseSession,
+) -> MessageResponse:
+    generic_message = (
+        "Si existe una cuenta verificada con ese correo, "
+        "enviaremos instrucciones para restablecer "
+        "la contraseña."
+    )
+
+    user = session.scalar(
+        select(User).where(
+            User.email == str(payload.email),
+        )
+    )
+
+    if (
+        user is None
+        or not user.is_active
+        or not user.is_email_verified
+    ):
+        return MessageResponse(
+            message=generic_message,
+        )
+
+    if not can_request_password_reset(
+        session,
+        user.id,
+    ):
+        return MessageResponse(
+            message=generic_message,
+        )
+
+    raw_token, _ = issue_password_reset_token(
+        session,
+        user.id,
+    )
+    session.commit()
+
+    try:
+        send_password_reset_email(
+            user.email,
+            user.display_name,
+            raw_token,
+        )
+    except EmailDeliveryError:
+        logger.exception(
+            "No fue posible enviar el correo "
+            "de recuperación.",
+        )
+
+    return MessageResponse(
+        message=generic_message,
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+)
+def reset_password(
+    payload: PasswordResetConfirm,
+    session: DatabaseSession,
+    response: Response,
+) -> MessageResponse:
+    user = consume_password_reset_token(
+        session,
+        payload.token,
+        payload.new_password,
+    )
+
+    if user is None:
+        session.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "El enlace de recuperación no es "
+                "válido o ya expiró."
+            ),
+        )
+
+    session.commit()
+    clear_refresh_cookie(response)
+
+    return MessageResponse(
+        message=(
+            "Tu contraseña fue actualizada "
+            "correctamente."
+        ),
     )
 
 @router.post(
@@ -289,10 +384,7 @@ def login_user(
     if not user.is_email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Debes confirmar tu correo antes "
-                "de iniciar sesión."
-            ),
+            detail=("Debes confirmar tu correo antes " "de iniciar sesión."),
         )
 
     settings = get_settings()
@@ -315,10 +407,9 @@ def login_user(
 
     return TokenResponse(
         access_token=access_token,
-        expires_in=(
-            settings.access_token_expire_minutes * 60
-        ),
+        expires_in=(settings.access_token_expire_minutes * 60),
     )
+
 
 @router.post(
     "/refresh",
@@ -362,10 +453,9 @@ def refresh_session(
 
     return TokenResponse(
         access_token=access_token,
-        expires_in=(
-            settings.access_token_expire_minutes * 60
-        ),
+        expires_in=(settings.access_token_expire_minutes * 60),
     )
+
 
 @router.post(
     "/logout",
@@ -390,6 +480,7 @@ def logout_session(
         session.commit()
 
     clear_refresh_cookie(response)
+
 
 @router.get(
     "/me",

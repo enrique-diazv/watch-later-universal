@@ -8,6 +8,7 @@ from app.models import (
     EmailVerificationToken,
     LibraryItem,
     Media,
+    PasswordResetToken,
     RefreshToken,
     User,
 )

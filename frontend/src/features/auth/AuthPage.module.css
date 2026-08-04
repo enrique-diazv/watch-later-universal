@@ -133,6 +133,18 @@
   font-size: 0.88rem;
 }
 
+.forgotPasswordLink {
+  justify-self: end;
+  margin-top: -8px;
+  color: #b998ff;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.forgotPasswordLink:hover {
+  color: #d1b4ff;
+  text-decoration: underline;
+}
 .error {
   margin: 0;
   padding: 12px 14px;

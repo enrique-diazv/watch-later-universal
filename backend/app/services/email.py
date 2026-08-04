@@ -27,6 +27,18 @@ def build_email_verification_url(
         f"/verify-email?{query}"
     )
 
+def build_password_reset_url(
+    raw_token: str,
+) -> str:
+    settings = get_settings()
+    query = urlencode({
+        "token": raw_token,
+    })
+
+    return (
+        f"{settings.frontend_base_url.rstrip('/')}"
+        f"/reset-password?{query}"
+    )
 
 def send_verification_email(
     recipient_email: str,
@@ -88,6 +100,100 @@ def send_verification_email(
             "Confirmar mi correo"
             "</a></p>"
             "<p>Si no creaste esta cuenta, "
+            "puedes ignorar este mensaje.</p>"
+        ),
+    }
+
+    headers = {
+        "accept": "application/json",
+        "api-key": (
+            settings
+            .brevo_api_key
+            .get_secret_value()
+        ),
+        "content-type": "application/json",
+    }
+
+    try:
+        response = httpx.post(
+            settings.brevo_api_url,
+            headers=headers,
+            json=payload,
+            timeout=(
+                settings.email_request_timeout_seconds
+            ),
+        )
+    except httpx.HTTPError as error:
+        raise EmailDeliveryError(
+            "No fue posible contactar a Brevo.",
+        ) from error
+
+    if response.is_error:
+        raise EmailDeliveryError(
+            "Brevo rechazó el correo "
+            f"con código {response.status_code}.",
+        )
+
+def send_password_reset_email(
+    recipient_email: str,
+    display_name: str,
+    raw_token: str,
+) -> None:
+    settings = get_settings()
+    reset_url = build_password_reset_url(raw_token)
+
+    if settings.email_delivery_mode == "console":
+        logger.warning(
+            "Enlace de recuperación para %s: %s",
+            recipient_email,
+            reset_url,
+        )
+        return
+
+    if settings.brevo_api_key is None:
+        raise EmailDeliveryError(
+            "BREVO_API_KEY no está configurada.",
+        )
+
+    safe_name = escape(display_name)
+    safe_url = escape(
+        reset_url,
+        quote=True,
+    )
+
+    payload = {
+        "sender": {
+            "email": settings.email_from_address,
+            "name": settings.email_from_name,
+        },
+        "to": [
+            {
+                "email": recipient_email,
+                "name": display_name,
+            },
+        ],
+        "subject": (
+            "Restablece tu contraseña en "
+            "Watch Later Universal"
+        ),
+        "textContent": (
+            f"Hola {display_name},\n\n"
+            "Recibimos una solicitud para cambiar "
+            "tu contraseña.\n"
+            "Abre este enlace para continuar:\n"
+            f"{reset_url}\n\n"
+            "Si no solicitaste este cambio, "
+            "puedes ignorar este mensaje."
+        ),
+        "htmlContent": (
+            "<h1>Restablece tu contraseña</h1>"
+            f"<p>Hola {safe_name},</p>"
+            "<p>Recibimos una solicitud para cambiar "
+            "tu contraseña en Watch Later Universal.</p>"
+            f'<p><a href="{safe_url}">'
+            "Crear una contraseña nueva"
+            "</a></p>"
+            "<p>Si no solicitaste este cambio, "
             "puedes ignorar este mensaje.</p>"
         ),
     }

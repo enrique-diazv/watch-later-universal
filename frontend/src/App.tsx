@@ -8,11 +8,20 @@ import { MediaDetailsPage } from './features/media/MediaDetailsPage'
 import { SearchPage } from './features/search/SearchPage'
 import { AuthPage } from './features/auth/AuthPage'
 import { VerifyEmailPage } from './features/auth/VerifyEmailPage'
-
+import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './features/auth/ResetPasswordPage'
 function App() {
   return (
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      <Route
+        path="/forgot-password"
+        element={<ForgotPasswordPage />}
+      />
+      <Route
+        path="/reset-password"
+        element={<ResetPasswordPage />}
+      />
       <Route
         path="/verify-email"
         element={<VerifyEmailPage />}

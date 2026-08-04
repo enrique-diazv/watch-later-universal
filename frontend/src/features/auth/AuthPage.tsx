@@ -258,7 +258,14 @@ export function AuthPage() {
               }
             />
           </label>
-
+          {mode === 'login' && (
+            <Link
+              className={styles.forgotPasswordLink}
+              to="/forgot-password"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          )}
           {mode === 'register' && (
             <p className={styles.hint}>
               Usa al menos 12 caracteres.
@@ -284,17 +291,17 @@ export function AuthPage() {
             mode === 'login'
             && pendingVerificationEmail !== null
           ) && (
-            <button
-              className={styles.secondary}
-              type="button"
-              disabled={isResending}
-              onClick={() => void handleResend()}
-            >
-              {isResending
-                ? 'Reenviando...'
-                : 'Reenviar correo de confirmación'}
-            </button>
-          )}
+              <button
+                className={styles.secondary}
+                type="button"
+                disabled={isResending}
+                onClick={() => void handleResend()}
+              >
+                {isResending
+                  ? 'Reenviando...'
+                  : 'Reenviar correo de confirmación'}
+              </button>
+            )}
 
           <button
             className={styles.submit}

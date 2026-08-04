@@ -101,6 +101,14 @@ export interface EmailVerificationResendPayload {
   email: string
 }
 
+export interface PasswordResetRequestPayload {
+  email: string
+}
+
+export interface PasswordResetConfirmPayload {
+  token: string
+  new_password: string
+}
 
 export interface MessageResponse {
   message: string
