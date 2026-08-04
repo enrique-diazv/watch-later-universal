@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     database_port: int = 5432
     database_name: str = "watch_later"
     database_user: str = "watch_later_app"
-    database_password: SecretStr
+    database_password: SecretStr | None = None
+    database_url: SecretStr | None = None
 
     jwt_secret_key: SecretStr
     jwt_algorithm: str = "HS256"
@@ -25,6 +26,10 @@ class Settings(BaseSettings):
     password_reset_token_expire_minutes: int = 30
     password_reset_request_cooldown_seconds: int = 60
     frontend_base_url: str = "http://localhost:5173"
+    cors_allowed_origins: tuple[str, ...] = (
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    )
     email_delivery_mode: Literal[
         "console",
         "brevo",
@@ -37,6 +42,11 @@ class Settings(BaseSettings):
     email_from_name: str = "Watch Later Universal"
     email_request_timeout_seconds: float = 10.0
     refresh_cookie_name: str = "refresh_token"
+    refresh_cookie_samesite: Literal[
+        "lax",
+        "strict",
+        "none",
+    ] = "lax"
     refresh_cookie_secure: bool = False
     model_config = SettingsConfigDict(
         env_file=".env",

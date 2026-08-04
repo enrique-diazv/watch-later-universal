@@ -79,7 +79,7 @@ def set_refresh_cookie(
         max_age=(settings.refresh_token_expire_days * 24 * 60 * 60),
         httponly=True,
         secure=settings.refresh_cookie_secure,
-        samesite="lax",
+        samesite=settings.refresh_cookie_samesite,
         path="/api/v1/auth",
     )
 
@@ -94,7 +94,7 @@ def clear_refresh_cookie(
         path="/api/v1/auth",
         secure=settings.refresh_cookie_secure,
         httponly=True,
-        samesite="lax",
+        samesite=settings.refresh_cookie_samesite,
     )
 
 
