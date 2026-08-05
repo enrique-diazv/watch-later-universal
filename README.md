@@ -4,7 +4,7 @@ Aplicación web para descubrir películas y series, guardarlas para después y o
 
 **Demo:** [watch-later-universal-six.vercel.app](https://watch-later-universal-six.vercel.app/)
 
-> El envío transaccional con Brevo está implementado, pero la demo utiliza temporalmente el modo `console` mientras se completa la activación del proveedor. La búsqueda y las cuentas ya verificadas funcionan normalmente.
+> El flujo de producción está conectado con Vercel, Neon y Brevo, incluyendo el envío real de correos de verificación y recuperación de contraseña.
 
 ## Funcionalidades
 
